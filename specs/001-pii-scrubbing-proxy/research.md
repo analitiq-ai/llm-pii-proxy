@@ -34,6 +34,29 @@ email and phone.
   safe to use verbatim. Without that, value-dependent tasks fail (P3 in the critique). The notice has to be
   constant text, so it stays prefix-stable.
 
+### R0b — Placeholder notice (FR-019), executed 2026-11-23
+
+Same 3 turns, three runs: PrivAiTe without notice (above), PrivAiTe plus a constant notice appended to `system`
+by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact values).
+
+| Run | Passed | Failed |
+|---|---|---|
+| Direct | 9/9 | none |
+| PrivAiTe, no notice | 4/9 | maintainer, new row, name, IP, token prefix (all refused) |
+| PrivAiTe + notice | 7/9 | new row; customer name came back as `,Margaret Ellsworth` |
+
+- **The notice works.** All refusals stopped. Claude used placeholders in answers and tool inputs, including a
+  token prefix obtained by a command whose output PrivAiTe masked and restored. Still 0 of 20 planted values
+  sent, 10/10 requests 200, no signature errors.
+- **New row failed**: it needed the *domain* of a masked email. Claude correctly reached for `awk` on the real
+  file, but the spike's tool allowlist denied it. Interactively the user would approve; it still costs a tool
+  round-trip and a permission prompt. Tasks needing **part** of a value are a known cost of whole-value
+  placeholders.
+- **Leading comma**: PrivAiTe's span included the CSV delimiter. The edge-trimming rule (data-model.md,
+  DetectedSpan) addresses exactly this.
+- **Latency, not isolated**: turns took 18/21/24 s through PrivAiTe vs 8/9/6 s direct, but the proxied runs also
+  made more tool calls. Measured properly in S2 and V10.
+
 ## R1 — Interception point
 
 - **Decision**: An HTTP gateway on loopback that Claude Code reaches through `ANTHROPIC_BASE_URL`. Routes:

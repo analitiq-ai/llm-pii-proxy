@@ -163,9 +163,9 @@ V8).
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T059 [P] Update `README.md`: placeholder example `PII_EMAIL_0001`, setup (`uv sync`, `scripts/build-secret-detector.sh`, operator lists file), run, link to quickstart
-- [ ] T060 [P] Update the project `CLAUDE.md`: the secret detector build step, `uv run pytest` (default) vs `uv run pytest -m benchmark`, and that `scripts/e2e/` is manual and calls real services
-- [ ] T061 Run `uv run ruff check --fix` and `uv run ruff format` over `src/` and `tests/`; fix all findings
+- [X] T059 [P] Update `README.md`: placeholder example `PII_EMAIL_0001`, setup (`uv sync`, `scripts/build-secret-detector.sh`, operator lists file), run, link to quickstart
+- [X] T060 [P] Update the project `CLAUDE.md`: the secret detector build step, `uv run pytest` (default) vs `uv run pytest -m benchmark`, and that `scripts/e2e/` is manual and calls real services
+- [X] T061 Run `uv run ruff check --fix` and `uv run ruff format` over `src/` and `tests/`; fix all findings
 - [ ] T062 Run the full validation V1–V10 in `specs/001-pii-scrubbing-proxy/quickstart.md` and confirm every result matches its Expected column
 
 ---

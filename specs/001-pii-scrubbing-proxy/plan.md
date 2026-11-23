@@ -72,7 +72,7 @@ from the project `CLAUDE.md` and the workspace coding principles (`cto/.claude/r
 | Define once, reuse everywhere | n/a | PASS: one holdback restorer for text and tool input; one vault path for local and confidential findings (FR-013); one leaf walker for messages and count_tokens |
 | No hand-rolled reimplementation | n/a | PASS: Presidio recognizers, the gitleaks engine (detect-secrets rejected on executed evidence), httpx-sse for SSE framing |
 | Contract-first | n/a | PASS: the Anthropic Messages API is the external contract and is walked generically (skip-list, unknown fields preserved); the proxy's own contracts are in `contracts/` |
-| Never assert unexecuted behaviour | n/a | PASS with caveat: R3, R7 and R8 facts are documentation-derived and flagged; spikes S1–S3 execute them before dependent code |
+| Never assert unexecuted behaviour | n/a | PASS with caveat: S1 and S2 executed the R3 and R7 facts; R8 stays documentation-derived until spike S3, which runs before US2 code |
 | No backwards compatibility | n/a | PASS: none |
 | Smallest change / YAGNI | n/a | PASS: no persistence, no multi-user mode, no UI |
 
@@ -88,8 +88,6 @@ Each spike is throwaway code in a scratch directory. Its result is written into 
 | **S1** | Does deterministic re-scrubbing survive thinking-signature prefix checks? (R3) | **Passed** (research R0), run through PrivAiTe against the real API: 10 requests, up to 7 replayed thinking blocks, no errors |
 | **S2** | gitleaks: version to pin, `stdin` invocation and JSON fields, latency per call, coverage of `password=` assignments (R7). spaCy: which components Presidio needs; NER latency (R5) | **Done** (R5, R7). The CLI missed the latency target (about 500 ms per call); a long-lived Go library process passed it (19 ms for 20 KB) and was adopted |
 | **S3** | Privatemode `response_format: json_schema` on `glm-flash-latest`; latency per 24k-char chunk (R8) | Schema-conformant output on 20 sample chunks; latency recorded |
-
-If S2's NER latency on a 20 KB leaf misses SC-004, revisit the model size (R5 alternatives) before building.
 
 ## Project Structure
 

@@ -77,6 +77,7 @@ claude
   is Anthropic's, forwarded unchanged; the proxy log names the session and says to start a new Claude Code
   conversation.
 - Tasks that need the model to see a literal value (validate this email's format, fix a regex for these phone
-  numbers) can't succeed. Tool definitions, including MCP tool descriptions, are forwarded unscrubbed.
+  numbers) can't succeed. Tasks that operate on part of a value (group by email domain, take a name's
+  initials) are out of scope: a part extracted by a tool reaches Anthropic unscrubbed. Tool definitions, including MCP tool descriptions, are forwarded unscrubbed.
 - With Story 2 enabled, the first request of a long resumed session may hit Privatemode's 200k-prompt-token-per-minute
   limit. Claude Code retries the resulting 503.

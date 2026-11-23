@@ -49,7 +49,7 @@ it would without the proxy.
    maps to the same placeholder every time within that conversation.
 5. **Given** a response streamed in pieces, where a placeholder is split across two pieces, **When** the
    developer watches it arrive, **Then** they never see a partial placeholder or a raw placeholder. They see
-   only the restored value.
+   only the restored value (thinking content excepted, FR-006).
 6. **Given** the local detection cannot process a request (for example, malformed content or an internal
    error), **When** the request is sent, **Then** it is blocked with a clear error and nothing is forwarded to
    the model provider.
@@ -110,8 +110,9 @@ the detection service only ever received text the local pass had already scrubbe
 - Detection false positives, for example a variable named `john` or a version number shaped like a phone
   number. Over-scrubbing is acceptable as long as restoration keeps files correct.
 - PII inside images or other binary attachments.
-- The proxy restarts mid-conversation. Placeholders are re-issued from the full history that Claude Code
-  re-sends. Mismatched numbering across the restart costs efficiency but never correctness.
+- The proxy restarts mid-conversation. The session's placeholders are lost, and re-scrubbing the history
+  produces different bytes, which can fail the model's signature checks on earlier turns. The proxy logs a hint
+  to start a new conversation (research R3).
 
 ## Requirements *(mandatory)*
 
@@ -123,8 +124,8 @@ the detection service only ever received text the local pass had already scrubbe
   instructions, user messages, file contents and command output returned to the model, and earlier model
   actions replayed in history.
 - **FR-003**: The system MUST detect at least these categories locally: personal names, email addresses, phone
-  numbers, postal addresses, payment card numbers, bank account numbers (IBAN), national ID numbers, and IP
-  addresses. It MUST also detect credentials and secrets (API keys, access tokens, passwords, private keys,
+  numbers, postal addresses, payment card numbers, bank account numbers (IBAN), national ID numbers (US SSN, UK
+  NHS number), and IP addresses. It MUST also detect credentials and secrets (API keys, access tokens, passwords, private keys,
   connection strings with embedded credentials) and treat them exactly like PII: same placeholders, same
   restoration.
 - **FR-004**: The system MUST replace each detected value with a placeholder that names its category and is
@@ -132,7 +133,9 @@ the detection service only ever received text the local pass had already scrubbe
 - **FR-005**: The system MUST restore original values in everything the model sends back: displayed text, and
   the inputs of actions Claude Code will carry out, such as file writes, edits and commands.
 - **FR-006**: The system MUST restore values correctly when responses are delivered incrementally, including
-  placeholders split across increments, without showing partial or raw placeholders to the user.
+  placeholders split across increments, without showing partial or raw placeholders to the user. Exception:
+  the model's thinking content keeps its placeholders, because altering it breaks signature checks (research
+  R3).
 - **FR-007**: The system MUST fail closed. If any part of a request cannot be scrubbed, the request is blocked
   with an error naming the cause, and nothing is forwarded.
 - **FR-008**: The system MUST keep the value-to-placeholder mapping only on the local machine and only in
@@ -180,14 +183,16 @@ the detection service only ever received text the local pass had already scrubbe
 
 - **SC-001**: Across a test corpus of seeded PII and secret values in the FR-003 categories, 0 seeded values
   appear in traffic leaving the machine for the model provider.
-- **SC-002**: A scripted set of at least 20 Claude Code tasks on PII-bearing files produces on-disk results
-  identical to the same tasks run without the proxy, with 100% of original values preserved.
-- **SC-003**: The local pass detects at least 95% of pattern-based PII (emails, phones, cards, IBANs, IPs) and
-  at least 85% of personal names in the benchmark corpus, and at least 95% of secrets in common
-  credential formats.
+- **SC-002**: On a scripted set of at least 20 Claude Code tasks over PII-bearing files, run through the proxy,
+  every planted value the task did not intend to change is byte-identical on disk afterwards, and each task's
+  pass check, fixed before any run, is met.
+- **SC-003**: The local pass detects at least 95% of pattern-based PII (emails, phones, cards, IBANs, IPs,
+  national IDs), at least 85% of personal names, and at least 70% of postal addresses in the benchmark corpus,
+  and at least 95% of secrets in common credential formats.
 - **SC-004**: With only the local pass, users perceive no meaningful slowdown: the added delay before the first
   part of a response appears is under 0.5 seconds for typical requests. A typical request carries at most 20 KB
-  of content the proxy hasn't seen before in the conversation.
+  of content the proxy hasn't seen before in the conversation. Larger new content adds about 2.3 seconds per
+  100 KB (research R5).
 - **SC-005**: With the second pass enabled, at least 70% of the context-dependent PII examples the local pass
   misses are replaced before reaching the model provider.
 - **SC-006**: The confidential detection service receives 0 values that the local pass had already detected.
@@ -196,8 +201,8 @@ the detection service only ever received text the local pass had already scrubbe
 - **SC-008**: On a fixed set of at least 20 tasks over PII-bearing files, the success rate through the proxy is
   at least 95% of the success rate running directly. Each task has a pass check fixed before any run (expected
   file contents or answer). Each task runs 3 times per mode. The set includes tasks that must reuse a value
-  (copy an email domain into a new row, report a value back) and excludes tasks that need to see a literal
-  value (see Assumptions).
+  (copy an email into a new row, report a value back) and excludes tasks that need to see a literal value or
+  operate on part of one (see Assumptions).
 
 ## Assumptions
 
@@ -208,8 +213,7 @@ the detection service only ever received text the local pass had already scrubbe
 - Primary language of PII is English. Other languages are best-effort.
 - PII inside images and binary attachments is out of scope for this feature. Such content is forwarded
   unchanged and noted in the scrub report.
-- Restoration targets exact placeholders plus a small set of predictable reformatting variants (case, missing
-  brackets). Arbitrary paraphrase by the model isn't restored.
+- Restoration targets exact placeholders plus a small set of predictable reformatting variants (case only). Arbitrary paraphrase by the model isn't restored.
 - The mapping lives only in memory for the life of the proxy process. Losing it on restart is acceptable (see
   Edge Cases).
 - Detection accuracy targets in SC-003 and SC-005 are initial targets. They will be calibrated once a benchmark
@@ -221,8 +225,10 @@ the detection service only ever received text the local pass had already scrubbe
   descriptions is a known gap.
 - Tasks that need the model to *see* a literal value cannot succeed, for example "does this email look valid"
   or "fix the regex for these phone formats". Placeholders hide the value's content by design. Each placeholder
-  replaces the whole value: no part of it, such as an email's domain, stays visible. A task that needs part of a
-  value has Claude extract it with a tool from the real file, which costs an extra tool call.
+  replaces the whole value: no part of it, such as an email's domain, stays visible.
+- Tasks that need to see or operate on part of a value (an email's domain, a name's initials, a key's prefix)
+  are out of scope. The proxy cannot prevent them: Claude's tools run on the real files, so a part extracted by
+  a tool comes back in the tool output unscrubbed.
 - Build vs. adopt: the open-source PrivAiTe proxy was evaluated by running it (research.md R0). It passed the
   integrity-check test but failed FR-002 (instructions unscrubbed: it leaked the OS username), FR-004
   (inconsistent placeholders), and structure preservation. Building is the chosen path.

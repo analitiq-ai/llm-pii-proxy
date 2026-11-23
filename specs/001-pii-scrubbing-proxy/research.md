@@ -286,4 +286,5 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   standing in for a real one). The model reasons more naturally about them, but they can't be told apart from
   real data on the way back, so restoration becomes guesswork. Partial placeholders that keep part of a value
   visible (`PII_EMAIL_0001@example.com`): rejected by the user (2026-11-23). A domain can identify a person at a
-  small company. Tasks needing part of a value use a tool on the real file instead (R0b).
+  small company. Tasks needing part of a value are out of scope (spec Assumptions). A tool run on the real file
+  would return the part unscrubbed, so the notice no longer suggests it.

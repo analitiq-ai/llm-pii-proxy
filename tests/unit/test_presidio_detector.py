@@ -1,6 +1,5 @@
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
 
@@ -9,21 +8,14 @@ from claude_pii_proxy.detection.presidio import (
     ENTITY_CATEGORIES,
     NER_CHUNK_CHARS,
     PresidioDetector,
-    build_engine,
 )
 from claude_pii_proxy.vault import Category
-
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
-
-
-@pytest.fixture(scope="module")
-def engine():
-    return build_engine()
+from tests.conftest import FIXTURES
 
 
 @pytest.fixture(scope="module")
-def detector(engine):
-    return PresidioDetector(engine, min_score=0.4)
+def detector(presidio_engine):
+    return PresidioDetector(presidio_engine, min_score=0.4)
 
 
 def found(text, spans):
@@ -44,8 +36,8 @@ def test_entity_map_is_research_r5():
     }
 
 
-def test_spacy_pipeline_is_tok2vec_and_ner_only(engine):
-    assert engine.nlp_engine.nlp["en"].pipe_names == ["tok2vec", "ner"]
+def test_spacy_pipeline_is_tok2vec_and_ner_only(presidio_engine):
+    assert presidio_engine.nlp_engine.nlp["en"].pipe_names == ["tok2vec", "ner"]
 
 
 async def test_categories_from_real_engine(detector):

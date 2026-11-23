@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 
 from claude_pii_proxy.errors import ScrubFailed
-from claude_pii_proxy.report import ScrubReport
+from claude_pii_proxy.report import ScrubReport, SessionTotals
 from claude_pii_proxy.scrub import LeafResult, Pipeline
 from claude_pii_proxy.vault import Category, Vault
 
@@ -18,6 +18,7 @@ class Session:
         # history was scrubbed by an earlier vault, so a thinking-signature rejection is expected.
         self.joined_mid_conversation = joined_mid_conversation
         self.last_seen = now
+        self.totals = SessionTotals()
         # Re-sent history must scrub to the bytes sent the first time (thinking signatures), so a
         # leaf's bytes are fixed once computed. A pending future makes concurrent requests share one
         # scrub instead of racing a non-deterministic detector.

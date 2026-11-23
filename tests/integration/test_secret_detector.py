@@ -17,9 +17,7 @@ from claude_pii_proxy.detection.gitleaks import (
 )
 from claude_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
 from claude_pii_proxy.vault import Category
-
-REPO = Path(__file__).resolve().parents[2]
-BINARY = REPO / ".tools" / "gitleaks-sidecar"
+from tests.conftest import REPO_ROOT as REPO
 
 # Concatenated so the repository itself never holds a provider-format key.
 STRIPE = "sk_" + "live_51HqLyjWDarjtT1zdp7dcXNHDiQ0kq5mQSbeSXgqqqqqqqqq"
@@ -65,10 +63,8 @@ def covered(text: str, spans: list[DetectedSpan], value: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def binary() -> Path:
-    if not BINARY.exists():
-        pytest.fail("secret detector not built: run scripts/build-secret-detector.sh")
-    return BINARY
+def binary(secret_detector_binary) -> Path:
+    return secret_detector_binary
 
 
 @pytest.fixture

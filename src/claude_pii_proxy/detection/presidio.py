@@ -5,8 +5,9 @@ import threading
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, Pattern
 from presidio_analyzer.nlp_engine import NlpEngineProvider
+from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
 from spacy.util import compile_infix_regex
 
 from claude_pii_proxy.detection import DetectedSpan, Stage
@@ -27,6 +28,14 @@ ENTITY_CATEGORIES: dict[str, Category] = {
 
 # spaCy rejects texts over nlp.max_length (1 000 000 chars).
 NER_CHUNK_CHARS = 100_000
+
+# Presidio's card pattern predates Mastercard's 2221-2720 range (issued since 2017). Same weak
+# score as Presidio's own pattern; the recognizer's Luhn check then decides.
+_MASTERCARD_2_SERIES = Pattern(
+    "Mastercard 2-series (weak)",
+    r"\b2(?:22[1-9]|2[3-9]\d|[3-6]\d{2}|7[01]\d|720)[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
+    0.3,
+)
 
 # S2: Presidio gives identical results without these, at about half the NER time.
 _UNUSED_SPACY_COMPONENTS = ("tagger", "parser", "attribute_ruler", "lemmatizer")
@@ -49,10 +58,15 @@ def build_engine() -> AnalyzerEngine:
     nlp = engine.nlp_engine.nlp["en"]
     for name in _UNUSED_SPACY_COMPONENTS:
         nlp.disable_pipe(name)
-    # The default tokenizer splits a comma only between letters, so "1,Margaret" in a CSV row
-    # stays one token and NER misses the name. Data delimiters always separate tokens.
-    infixes = [*nlp.Defaults.infixes, r"[,;|]"]
+    # The default tokenizer splits a comma only between letters, so "1,Margaret" in a CSV row or
+    # holder="Gail in a log line stays one token and NER misses the name. Data delimiters
+    # always separate tokens.
+    infixes = [*nlp.Defaults.infixes, r"[,;|=]"]
     nlp.tokenizer.infix_finditer = compile_infix_regex(infixes).finditer
+    engine.registry.remove_recognizer("CreditCardRecognizer")
+    engine.registry.add_recognizer(
+        CreditCardRecognizer(patterns=[*CreditCardRecognizer.PATTERNS, _MASTERCARD_2_SERIES])
+    )
     return engine
 
 

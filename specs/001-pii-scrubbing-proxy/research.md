@@ -150,9 +150,17 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   - SC-004: a 20 KB leaf fits (200–450 ms) with no margin. A 100 KB file read takes about 2.3 s.
 - **Delimited data (found in T025, 2026-11-23)**: spaCy's default tokenizer splits a comma only between two
   letters, so `1,Margaret Ellsworth,...` tokenizes as `1,Margaret` and NER found only `Ellsworth`, and missed
-  `Tobias Quennell` entirely, in the fixture CSV. Adding `[,;|]` to the tokenizer infixes (spaCy's own
-  customization point) makes NER find both full names. Presidio's pattern recognizers run on raw text and are
-  unaffected.
+  `Tobias Quennell` entirely, in the fixture CSV. Adding `[,;|=]` to the tokenizer infixes (spaCy's own
+  customization point) makes NER find both full names; `=` does the same for `holder="Gail Harrison"` in log
+  lines (log-context name recall 2% → 98% on the T046 corpus). Presidio's pattern recognizers run on raw
+  text and are unaffected.
+- **Cards (found in T047)**: Presidio's `CreditCardRecognizer` pattern has no `2` prefix, so every Mastercard
+  in the 2221–2720 range (issued since 2017) was missed: card recall 63%. Constructing the recognizer with
+  its own pattern plus a 2-series pattern at the same weak score, Luhn-validated as before, gives 100%.
+- **Postal addresses (found in T047): not covered.** The R5 mapping `LOCATION`→ADDRESS assumed spaCy's
+  location entities cover postal addresses. They don't: NER tags the city and sometimes the street name
+  (often as PERSON), and the house number and ZIP code are never detected. Full-coverage recall is 0% on the
+  corpus against SC-003's 70%. Open decision; see tasks.md T047.
 - **Size limit**: spaCy rejects texts over `nlp.max_length` (1 000 000 chars). NER input goes through the same
   line-based chunker as the confidential pass (chunks of 100 000 chars, 200-char overlap) instead of failing
   closed on large leaves.

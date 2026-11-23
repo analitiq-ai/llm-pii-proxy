@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from claude_pii_proxy.detection import Stage
+from claude_pii_proxy.detection import Stage, trim_span
 from claude_pii_proxy.detection.presidio import (
     ENTITY_CATEGORIES,
     NER_CHUNK_CHARS,
@@ -120,3 +120,21 @@ async def test_names_in_csv_rows_found_whole(detector):
     got = found(text, spans)
     assert ("Margaret Ellsworth", Category.PERSON) in got
     assert ("Tobias Quennell", Category.PERSON) in got
+
+
+async def test_mastercard_2_series_found(detector):
+    # Presidio's card pattern predates the 2221-2720 Mastercard range (issued since 2017).
+    text = "card 2717 9722 0510 5505 and 2221000000000009 and invalid 2717 9722 0510 5506"
+    (spans,) = await detector.detect([text])
+    got = found(text, spans)
+    assert ("2717 9722 0510 5505", Category.CARD) in got
+    assert ("2221000000000009", Category.CARD) in got
+    assert ("2717 9722 0510 5506", Category.CARD) not in got  # fails the Luhn check
+
+
+async def test_names_in_key_value_fields_found(detector):
+    text = 'WARN billing card declined holder="Gail Harrison"\nINFO owner=Teresa Phillips\n'
+    (spans,) = await detector.detect([text])
+    got = found(text, [t for s in spans for t in trim_span(text, s)])
+    assert ("Gail Harrison", Category.PERSON) in got
+    assert ("Teresa Phillips", Category.PERSON) in got

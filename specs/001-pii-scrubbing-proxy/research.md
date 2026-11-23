@@ -148,6 +148,11 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   - `en_core_web_sm` is no faster with the same trim (120 vs 123 ms on 20 KB) and finds only 29 of the 116
     names `lg` finds. `lg` stays.
   - SC-004: a 20 KB leaf fits (200–450 ms) with no margin. A 100 KB file read takes about 2.3 s.
+- **Delimited data (found in T025, 2026-11-23)**: spaCy's default tokenizer splits a comma only between two
+  letters, so `1,Margaret Ellsworth,...` tokenizes as `1,Margaret` and NER found only `Ellsworth`, and missed
+  `Tobias Quennell` entirely, in the fixture CSV. Adding `[,;|]` to the tokenizer infixes (spaCy's own
+  customization point) makes NER find both full names. Presidio's pattern recognizers run on raw text and are
+  unaffected.
 - **Size limit**: spaCy rejects texts over `nlp.max_length` (1 000 000 chars). NER input goes through the same
   line-based chunker as the confidential pass (chunks of 100 000 chars, 200-char overlap) instead of failing
   closed on large leaves.

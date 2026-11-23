@@ -91,8 +91,8 @@ the proxy (spec US1; quickstart V1, V2, V5, V10).
 
 ### PII detection
 
-- [ ] T025 [P] [US1] Write `tests/unit/test_presidio_detector.py`: entity → Category map from research R5 (`PERSON`→PERSON, `LOCATION`→ADDRESS, `EMAIL_ADDRESS`→EMAIL, `PHONE_NUMBER`→PHONE, `CREDIT_CARD`→CARD, `IBAN_CODE`→IBAN, `US_SSN`/`UK_NHS`→NATIONALID, `IP_ADDRESS`→IP); `DATE_TIME`, `NRP`, `URL` never returned; spaCy pipeline enabled components are exactly `tok2vec`, `ner`; results below `PII_PROXY_MIN_SCORE` dropped; a leaf over 100 000 characters is chunked (100 000, overlap 200) and a value inside the overlap is reported once with correct offsets; analysis runs off the event loop thread
-- [ ] T026 [US1] Implement `src/claude_pii_proxy/detection/presidio.py`: one `AnalyzerEngine` built at startup on `en_core_web_lg` with `tagger`, `parser`, `attribute_ruler`, `lemmatizer` disabled; `detect()` via `asyncio.to_thread`; uses `detection/chunking.py`
+- [X] T025 [P] [US1] Write `tests/unit/test_presidio_detector.py`: entity → Category map from research R5 (`PERSON`→PERSON, `LOCATION`→ADDRESS, `EMAIL_ADDRESS`→EMAIL, `PHONE_NUMBER`→PHONE, `CREDIT_CARD`→CARD, `IBAN_CODE`→IBAN, `US_SSN`/`UK_NHS`→NATIONALID, `IP_ADDRESS`→IP); `DATE_TIME`, `NRP`, `URL` never returned; spaCy pipeline enabled components are exactly `tok2vec`, `ner`; results below `PII_PROXY_MIN_SCORE` dropped; a leaf over 100 000 characters is chunked (100 000, overlap 200) and a value inside the overlap is reported once with correct offsets; analysis runs off the event loop thread
+- [X] T026 [US1] Implement `src/claude_pii_proxy/detection/presidio.py`: one `AnalyzerEngine` built at startup on `en_core_web_lg` with `tagger`, `parser`, `attribute_ruler`, `lemmatizer` disabled; `detect()` via `asyncio.to_thread`; uses `detection/chunking.py`
 
 ### Scrubbing
 

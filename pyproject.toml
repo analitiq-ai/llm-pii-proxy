@@ -1,0 +1,42 @@
+[project]
+name = "claude-pii-proxy"
+version = "0.1.0"
+description = "Local proxy for Claude Code that pseudonymizes PII in outbound requests and restores it in responses."
+readme = "README.md"
+authors = [
+    { name = "Analitiq-Bot", email = "analitiq@analitiq.ai" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "en-core-web-lg",
+    "fastapi>=0.165.0",
+    "httpx>=0.28.1",
+    "presidio-analyzer>=2.2.366",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.1,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.uv.sources]
+en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }

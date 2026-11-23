@@ -172,7 +172,10 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   it is replaced by one that returns results unchanged. Median now about 520 ms (100 KB: 2.4 s). Of the rest,
   `PhoneRecognizer` takes 286 ms with its 8 default regions, against 77 ms for US+GB and 43 ms for US only.
   Fewer regions would stop it finding national-format numbers from the dropped countries; numbers written with
-  a `+` country code are still found. Open decision; see tasks.md T048.
+  a `+` country code are still found. Decision (user, 2026-11-23): keep all 8 regions; SC-004 is judged on
+  typical content. Measured after the address recognizer was added, medians of 10 runs: 20 KB typical
+  (stdlib code, a corpus record every 1600 chars) 297 ms; 20 KB all PII 478 ms (max 657 ms, recorded as the
+  worst case); 100 KB typical 1.1 s.
 - **Size limit**: spaCy rejects texts over `nlp.max_length` (1 000 000 chars). NER input goes through the same
   line-based chunker as the confidential pass (chunks of 100 000 chars, 200-char overlap) instead of failing
   closed on large leaves.

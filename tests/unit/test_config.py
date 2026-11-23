@@ -22,7 +22,7 @@ def test_defaults_match_quickstart_table():
     assert s.upstream_url == "https://api.anthropic.com"
     assert s.min_score == 0.4
     assert s.session_idle_ttl_s == 43200
-    assert s.secret_detector_path == Path(".tools/gitleaks-sidecar")
+    assert s.secret_detector_path == Path.cwd() / ".tools/gitleaks-sidecar"
     assert s.lists_path == Path("~/.config/claude-pii-proxy/lists.toml").expanduser()
     assert s.confidential_enabled is False
     assert s.confidential_url == "http://127.0.0.1:8080"
@@ -74,3 +74,12 @@ def test_invalid_values_raise_at_construction(field, value):
 
 def test_pinned_gitleaks_version():
     assert PINNED_GITLEAKS_VERSION == "v8.30.1"
+
+
+def test_secret_detector_path_resolved_against_startup_cwd(monkeypatch, tmp_path):
+    # The detector runs with cwd "/", so a relative path must be made absolute up front.
+    monkeypatch.chdir(tmp_path)
+    assert (
+        Settings(secret_detector_path=Path("rel/bin")).secret_detector_path == tmp_path / "rel/bin"
+    )
+    assert Settings().secret_detector_path == tmp_path / ".tools/gitleaks-sidecar"

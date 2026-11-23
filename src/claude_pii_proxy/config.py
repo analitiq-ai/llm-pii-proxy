@@ -50,7 +50,8 @@ class Settings(BaseSettings):
             raise ValueError("must not end with '/': request paths are appended to it")
         return url
 
-    @field_validator("lists_path")
+    @field_validator("lists_path", "secret_detector_path")
     @classmethod
-    def _expand_home(cls, path: Path) -> Path:
-        return path.expanduser()
+    def _absolute(cls, path: Path) -> Path:
+        # Against the startup cwd: the secret detector itself runs with cwd "/".
+        return path.expanduser().absolute()

@@ -1,13 +1,14 @@
 # Quickstart & Validation: PII-Scrubbing Proxy
 
 A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.md),
-[placeholder-format](contracts/placeholder-format.md), [confidential-detection](contracts/confidential-detection.md).
+[placeholder-format](contracts/placeholder-format.md), [confidential-detection](contracts/confidential-detection.md),
+[secret-detector](contracts/secret-detector.md).
 
 ## Prerequisites
 
 - `uv`, with the project synced (`uv sync`). The spaCy model is a locked dependency.
-- gitleaks at the pinned version: `scripts/install-gitleaks.sh` (installs into `.tools/`, gitignored). The
-  proxy refuses to start on a version mismatch.
+- The secret detector: `scripts/build-secret-detector.sh` (downloads pinned Go into `.tools/`, gitignored, and
+  builds `.tools/gitleaks-sidecar`). The proxy refuses to start on a gitleaks version mismatch.
 - Story 2 only: a Privatemode API key, and its proxy running, pinned by digest (recorded by spike S3):
   `docker run -p 127.0.0.1:8080:8080 ghcr.io/edgelesssys/privatemode/privatemode-proxy@sha256:<digest> --api-key <key>`.
 
@@ -20,7 +21,7 @@ A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.m
 | `PII_PROXY_UPSTREAM_URL` | `https://api.anthropic.com` | |
 | `PII_PROXY_MIN_SCORE` | `0.4` | Presidio score threshold |
 | `PII_PROXY_SESSION_IDLE_TTL_S` | `43200` | whole-session eviction |
-| `PII_PROXY_GITLEAKS_PATH` | `.tools/gitleaks` | |
+| `PII_PROXY_SECRET_DETECTOR_PATH` | `.tools/gitleaks-sidecar` | |
 | `PII_PROXY_LISTS_PATH` | `~/.config/claude-pii-proxy/lists.toml` | operator lists (FR-018). Absent file means empty lists; an invalid file fails startup |
 | `PII_PROXY_CONFIDENTIAL_ENABLED` | `false` | Story 2 switch (FR-015) |
 | `PII_PROXY_CONFIDENTIAL_URL` | `http://127.0.0.1:8080` | Privatemode proxy |

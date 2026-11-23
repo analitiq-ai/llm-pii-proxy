@@ -30,8 +30,9 @@ FR-004 and structure preservation, so this is a build.
 **Language/Version**: Python 3.13 (uv-managed)
 
 **Primary Dependencies**: Starlette, uvicorn, httpx, httpx-sse, pydantic-settings, presidio-analyzer, spaCy
-`en_core_web_lg` 3.8.0 (parser disabled), gitleaks (external binary at the version pinned by spike S2, installed
-by `scripts/install-gitleaks.sh` and checked at startup). `fastapi` is removed (research R9). Dev: Faker (corpus
+`en_core_web_lg` 3.8.0 (only `tok2vec` and `ner` enabled), gitleaks v8.30.1 as a Go library in a long-lived
+child process (contracts/secret-detector.md), built with Go 1.27.4 by `scripts/build-secret-detector.sh`; its
+version is checked at startup. `fastapi` is removed (research R9). Dev: Faker (corpus
 generation), Hypothesis (property tests).
 
 **Storage**: none. Process memory only (FR-008).
@@ -85,7 +86,7 @@ Each spike is throwaway code in a scratch directory. Its result is written into 
 | Spike | Question | Pass condition |
 |---|---|---|
 | **S1** | Does deterministic re-scrubbing survive thinking-signature prefix checks? (R3) | **Passed** (research R0), run through PrivAiTe against the real API: 10 requests, up to 7 replayed thinking blocks, no errors |
-| **S2** | gitleaks: version to pin, `stdin` invocation and JSON fields, latency per call, coverage of `password=` assignments (R7). spaCy: which components Presidio needs; NER latency (R5) | **Partly failed** (R5, R7): version, invocation, coverage (with a project config) and spaCy trim settled; gitleaks costs about 500 ms per call, against a 100 ms target. Open decision in R7 |
+| **S2** | gitleaks: version to pin, `stdin` invocation and JSON fields, latency per call, coverage of `password=` assignments (R7). spaCy: which components Presidio needs; NER latency (R5) | **Done** (R5, R7). The CLI missed the latency target (about 500 ms per call); a long-lived Go library process passed it (19 ms for 20 KB) and was adopted |
 | **S3** | Privatemode `response_format: json_schema` on `glm-flash-latest`; latency per 24k-char chunk (R8) | Schema-conformant output on 20 sample chunks; latency recorded |
 
 If S2's NER latency on a 20 KB leaf misses SC-004, revisit the model size (R5 alternatives) before building.
@@ -103,7 +104,8 @@ specs/001-pii-scrubbing-proxy/
 ├── contracts/
 │   ├── http-interface.md
 │   ├── placeholder-format.md
-│   └── confidential-detection.md
+│   ├── confidential-detection.md
+│   └── secret-detector.md
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks, not created here
 ```
@@ -112,7 +114,7 @@ specs/001-pii-scrubbing-proxy/
 
 ```text
 src/claude_pii_proxy/
-├── __main__.py          # load Settings and operator lists, check gitleaks version, run uvicorn
+├── __main__.py          # load Settings and operator lists, start the secret detector, run uvicorn
 ├── config.py            # Settings (pydantic-settings); loopback-only validation; pinned gitleaks version
 ├── operator_lists.py    # always-scrub / never-scrub file loading and validation (FR-018)
 ├── app.py               # Starlette routes, upstream forwarding, proxy error responses, restart hint
@@ -127,12 +129,15 @@ src/claude_pii_proxy/
     ├── __init__.py      # DetectedSpan, Detector protocol, edge trimming, overlap resolution
     ├── chunking.py      # line-based chunker with overlap, shared by NER and the confidential pass
     ├── presidio.py      # Presidio analyzer setup (parser disabled), entity -> Category map
-    ├── gitleaks.py      # gitleaks stdin invocation, finding -> span mapping
+    ├── gitleaks.py      # secret detector process: start, version check, JSON-lines calls, finding -> span
+    └── gitleaks.toml    # rules: gitleaks defaults + uri-credentials, password-literal, password-line
     └── confidential.py  # Privatemode client: schema call, span location
 
 scripts/
-├── install-gitleaks.sh  # pinned release into .tools/, sha256-verified
+├── build-secret-detector.sh  # pinned Go into .tools/go (sha256-verified), builds .tools/gitleaks-sidecar
 └── e2e/                 # recorder + leak/thinking analysis from spike R0; manual, real API
+
+sidecar/gitleaks/        # Go module: main.go, go.mod (gitleaks v8.30.1), go.sum
 
 tests/
 ├── unit/                # vault, grammar, holdback, walker, overlap, report

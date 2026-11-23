@@ -169,11 +169,12 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
 
 - **Verified** (executed 2026-11-21): `detect-secrets` `scan_line` returned `'ghp'` for a full GitHub token, the
   capture group only, and `'7E'` as a hex high-entropy secret. It identifies lines, not spans. Rejected.
-- **Decision**: The gitleaks binary at a pinned version, invoked once per request through `gitleaks stdin` with
-  a JSON report, over the request's cache-miss leaves joined by separator lines. Findings are mapped back to
-  leaves by line, and the `Secret` field is located within that line. Each finding becomes a `SECRET` span.
+- **Decision** (user, 2026-11-23, after S2): gitleaks **as a Go library** inside a long-lived child process
+  that loads the rules once (contracts/secret-detector.md). Each request with cache-miss leaves sends them,
+  joined by separator lines. Findings are mapped back to leaves by line, and the `Secret` field is located
+  within those lines. Each finding becomes a `SECRET` span.
 - **Rationale**: Gitleaks is the maintained engine for known credential formats: rule regexes, keyword
-  pre-filters, entropy thresholds, allowlists. Reusing the binary avoids reimplementing that engine. Vendoring
+  pre-filters, entropy thresholds, allowlists. Reusing the engine avoids reimplementing it. Vendoring
   its rule file into Python would mean rewriting the keyword, entropy and allowlist semantics, which is a
   parallel implementation that drifts.
 - **Executed (S2, 2026-11-23)**, gitleaks **8.30.1** (linux x64 tarball sha256
@@ -194,11 +195,19 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   - **Latency fails the target.** About 500 ms per call whatever the input size: process start is about 290 ms
     (`gitleaks version` alone), the default rules add about 170 ms to compile, and scanning 100 KB adds about
     70 ms. The floor is per process, so a fresh process per request costs about 0.5 s on every request with
-    new content, which alone uses SC-004's whole budget. **Open decision**: a long-lived detector process that
-    loads the rules once (gitleaks used as a Go library, about 70 ms per 100 KB), or relax SC-004.
-- **Pinning**: gitleaks isn't installable through uv. `scripts/install-gitleaks.sh` downloads the pinned release
-  into `.tools/` and verifies its sha256. The proxy refuses to start when `gitleaks version` differs from the
-  pinned version.
+    new content, which alone uses SC-004's whole budget. Relaxing SC-004 to about 1 s was rejected.
+  - **Long-lived process, executed**: a ~90-line Go program on `detect.NewDetector` and `DetectString`, built
+    with Go 1.27.4 (10 s build, 14 MB binary). Ready in 63 ms. Per scan: 0.8 ms for 100 B, 19 ms for 20 KB,
+    144 ms for 100 KB. Findings were identical to the CLI on all 5 inputs, base64-encoded secrets included.
+    `Detect` keeps no state between calls (`AddFinding` isn't on its path), so one detector serves the whole
+    process lifetime. `NewDetector` leaves `MaxDecodeDepth` at 0; the CLI's default is 5, so it is set
+    explicitly.
+  - A secret found inside base64 is reported as its decoded value, which doesn't occur in the text. Handling is
+    in contracts/secret-detector.md.
+- **Pinning**: gitleaks `v8.30.1` in the sidecar's `go.mod`, with `go.sum`. Go isn't installable through uv:
+  `scripts/build-secret-detector.sh` downloads Go 1.27.4 into `.tools/go` (sha256
+  `7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840`) and builds `.tools/gitleaks-sidecar`. The
+  proxy refuses to start when the process reports a different gitleaks version.
 - **Alternatives**: Presidio custom PatternRecognizers with hand-written secret regexes. Rejected as
   hand-rolled. TruffleHog. A heavier binary aimed at verification against live services, and the proxy must
   never call those.

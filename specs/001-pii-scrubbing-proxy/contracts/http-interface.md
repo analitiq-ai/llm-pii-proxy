@@ -79,6 +79,7 @@ Body shape matches the Anthropic API so Claude Code shows the message:
 |---|---|---|---|
 | Missing session header, non-JSON body | 400 | `invalid_request_error` | no |
 | Local scrubbing raised (FR-007) | 400 | `invalid_request_error` | no. Deterministic, so a retry would fail the same way |
+| Secret detector process crashed, timed out or answered malformed (contracts/secret-detector.md) | 503 | `api_error` | yes. A fresh process serves the retry |
 | Compressed request body | 415 | `invalid_request_error` | no |
 | Unknown route | 404 | `not_found_error` | no |
 | Confidential pass unreachable or timed out (FR-014) | 503 | `api_error`, `retry-after: 5` | yes |

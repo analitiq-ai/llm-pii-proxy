@@ -26,6 +26,7 @@ Response:
 
 ## Finding → span
 
+- `start_line` and `end_line` are 0-based (gitleaks' own numbering, observed when building the detector).
 - The proxy locates `secret` in the text between `start_line` and `end_line`; each occurrence becomes a
   `SECRET` span. Columns aren't used: they were off by one in S2.
 - A finding tagged `decoded:*` has a `secret` that doesn't occur in the text: it was found inside base64, hex or

@@ -1,0 +1,23 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "uri-credentials"
+description = "Password embedded in a URI (connection strings)"
+regex = '''[a-zA-Z][a-zA-Z0-9+.\-]*://[^:/?#\s@]+:([^@\s/]+)@'''
+secretGroup = 1
+keywords = ["://"]
+
+[[rules]]
+id = "password-literal"
+description = "Quoted string literal assigned to a password-like key (code, JSON, YAML)"
+regex = '''(?i)[a-z0-9_.\-]*(?:passw(?:or)?d|passwd|pass|pwd)["']?\s*(?:[:=]|:=|=>)\s*["']([^"'\s]{4,})["']'''
+secretGroup = 1
+keywords = ["pass", "pwd"]
+
+[[rules]]
+id = "password-line"
+description = "Unquoted value of a password-like key alone on its line (.env, YAML, INI)"
+regex = '''(?im)^\s*(?:export\s+)?[a-z0-9_.\-]*(?:passw(?:or)?d|passwd|pass|pwd)\s*[:=]\s*([^\s"'#]{4,})\s*$'''
+secretGroup = 1
+keywords = ["pass", "pwd"]

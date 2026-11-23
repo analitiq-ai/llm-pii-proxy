@@ -284,8 +284,24 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
 - **Risk**: the first request of a resumed long session is entirely cache misses and can exceed 200k prompt
   tokens/min. The 429 surfaces as a 503 the client retries (FR-014). Acceptable for the P2 story, and noted in
   the quickstart.
-- **Not yet executed.** Spike S3 confirms that `response_format: json_schema` is honoured by
-  `glm-flash-latest` and measures latency per 24k-character chunk.
+- **Executed (S3, 2026-11-23)**: Privatemode proxy v1.64.0,
+  `ghcr.io/edgelesssys/privatemode/privatemode-proxy@sha256:cf046abd3f6cbccccc69cc742533607235b756cb497f8d23d4b02f42fc223334`,
+  attestation verified. 20 chunks of 24 000 characters (stdlib code, 3 `context-pii` examples each, each on a
+  line with a placeholder token), contract request as written, run sequentially.
+  - **`glm-flash-latest` is a reasoning model.** With the contract's request, 17 of 20 hit
+    `max_completion_tokens` (2048) on reasoning tokens alone and returned empty `content`; 3 of 20 conformed.
+    Median 21.7 s, max 44.5 s per chunk.
+  - **Reasoning off fixes both.** `chat_template_kwargs: {"enable_thinking": false}`: 20/20 schema-conformant,
+    median 1.2 s, max 1.9 s, about 100 output tokens. `reasoning_effort: "none"`: also 20/20, median 1.3 s,
+    but fewer planted examples found (51 vs 56 of 60). `thinking: {"type": "disabled"}` has no effect.
+  - **Spans are too wide with the contract's instruction.** Findings were whole lines, so 39 of 56 included the
+    placeholder token on that line; the contract drops such findings. Asking for the shortest identifying
+    phrase, never including a token: 0 findings with a token, every finding verbatim, but planted phrases fully
+    covered fell to 41/60, mostly from a dropped leading "the", some from descriptions cut short.
+  - A 402 (organisation quota locked until a payment card is added) came back as a plain non-2xx; the
+    contract's fail-closed path covers it.
+  - Open decisions: which reasoning switch goes in the contract; whether a finding overlapping a placeholder
+    is dropped (contract) or has the token subtracted, as the local stage does with fixed spans.
 
 ## R9 — Stack
 

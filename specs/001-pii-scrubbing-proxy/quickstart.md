@@ -10,7 +10,8 @@ A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.m
 - The secret detector: `scripts/build-secret-detector.sh` (downloads pinned Go into `.tools/`, gitignored, and
   builds `.tools/gitleaks-sidecar`). The proxy refuses to start on a gitleaks version mismatch.
 - Story 2 only: a Privatemode API key, and its proxy running, pinned by digest (recorded by spike S3):
-  `docker run -p 127.0.0.1:8080:8080 ghcr.io/edgelesssys/privatemode/privatemode-proxy@sha256:<digest> --api-key <key>`.
+  `docker run -p 127.0.0.1:8080:8080 ghcr.io/edgelesssys/privatemode/privatemode-proxy@sha256:cf046abd3f6cbccccc69cc742533607235b756cb497f8d23d4b02f42fc223334 --api-key <key>`
+  (v1.64.0, recorded by spike S3).
 
 ## Configuration (environment)
 

@@ -103,8 +103,8 @@ the proxy (spec US1; quickstart V1, V2, V5, V10).
 
 ### Sessions and leaf cache
 
-- [ ] T031 [P] [US1] Write `tests/unit/test_sessions.py` against data-model.md Session and Leaf cache: a session is created on a new id with its vault seeded; a cached leaf returns the identical bytes after the vault has grown; two concurrent requests needing the same uncached leaf call the detectors once and get identical bytes (single-flight); on failure "the pending entry is removed and every awaiting request fails closed with the same error. Nothing is cached", and the next attempt scrubs afresh; a leaf is cached even when another leaf of the same request fails; a session idle longer than `PII_PROXY_SESSION_IDLE_TTL_S` is evicted whole (injected clock), and is "never partly evicted"; the session records whether its first request already held assistant turns
-- [ ] T032 [US1] Implement `src/claude_pii_proxy/sessions.py`: `SessionStore` (clock injected), `Session(vault, leaf_cache, last_seen, joined_mid_conversation)`, leaf cache keyed by sha256 of the raw leaf with per-key pending futures
+- [X] T031 [P] [US1] Write `tests/unit/test_sessions.py` against data-model.md Session and Leaf cache: a session is created on a new id with its vault seeded; a cached leaf returns the identical bytes after the vault has grown; two concurrent requests needing the same uncached leaf call the detectors once and get identical bytes (single-flight); on failure "the pending entry is removed and every awaiting request fails closed with the same error. Nothing is cached", and the next attempt scrubs afresh; a leaf is cached even when another leaf of the same request fails; a session idle longer than `PII_PROXY_SESSION_IDLE_TTL_S` is evicted whole (injected clock), and is "never partly evicted"; the session records whether its first request already held assistant turns
+- [X] T032 [US1] Implement `src/claude_pii_proxy/sessions.py`: `SessionStore` (clock injected), `Session(vault, leaf_cache, last_seen, joined_mid_conversation)`, leaf cache keyed by sha256 of the raw leaf with per-key pending futures
 
 ### Placeholder notice
 

@@ -1,0 +1,196 @@
+# Research: PII-Scrubbing Proxy
+
+Sources were fetched on 2026-11-21. "Verified" means I executed it in this session. Everything else comes from
+the cited documentation and is **not yet executed**. The spike tasks in plan.md exist to execute it.
+
+## R0 — Spike S1 against PrivAiTe 0.8.3 (executed 2026-11-23)
+
+**Setup**: PrivAiTe gateway (`preset: onnx`, presidio `en`, `detection_cache.enabled: true`, 127.0.0.1)
+→ mitmproxy reverse recorder → api.anthropic.com. Claude Code 2.1.330, `alwaysThinkingEnabled`, 3 user turns
+via `-p` / `--continue`, which made 10 upstream requests. The scratch project had 20 planted fake values: a CSV
+of customers, a `.env` with an AWS key, a GitHub token and a password, and CLAUDE.md with a maintainer's name,
+email and phone.
+
+| Check | Result |
+|---|---|
+| Thinking-signature prefix checks | **Pass.** Up to 7 thinking blocks replayed across tool calls; 10/10 requests 200; no signature or modification errors |
+| Planted values reaching Anthropic | **0 of 20** |
+| CLAUDE.md | Claude Code puts it in `messages` (a system-reminder), not `system`, so it was scrubbed |
+| `system` (not scanned by PrivAiTe) | **Leaked the operator's real OS username** via the memory path `/home/<user>/.claude/projects/...` |
+| Files on disk after edits | Correct; real values preserved |
+| Placeholder consistency | **Fail.** The same customer name became `<PERSON_3>` in one tool result and `<PERSON_10>` in another. Spans also swallowed CSV delimiters and row ids (`1,Margaret Ellsworth,` → `1<PERSON_4>`), so Claude saw broken CSV structure |
+| Category accuracy | SSN → `FINANCIAL`, IP → `URL`, `https` in URLs → `<URL_1>`, 7 `DATE_TIME` hits: over-scrubbing |
+| Task completion | **Fail on value-dependent tasks.** Claude declined to build a row from masked values, and to state customer 1's name or IP: it treated placeholders as irrecoverable redactions, not reversible stand-ins. It noticed the inconsistent placeholders and refused to rely on them |
+
+**Conclusions**:
+- The proxy architecture (rewrite outbound, restore inbound, never touch thinking) survives prefix checks with
+  deterministic detection. This answers the R3 question for local detection.
+- Gaps in PrivAiTe against this spec:
+  - no `system` scrubbing (FR-002)
+  - a per-request mapping, so placeholders are inconsistent across leaves (FR-004)
+  - span boundaries that damage structure
+  - no LLM second pass (US2)
+- A finding that applies to **any** implementation: Claude must be told that placeholders are reversible and
+  safe to use verbatim. Without that, value-dependent tasks fail (P3 in the critique). The notice has to be
+  constant text, so it stays prefix-stable.
+
+## R1 — Interception point
+
+- **Decision**: An HTTP gateway on loopback that Claude Code reaches through `ANTHROPIC_BASE_URL`. Routes:
+  `POST /v1/messages`, `POST /v1/messages/count_tokens`, `HEAD /api/hello`, `GET /v1/models`. Everything else
+  gets `404`.
+- **Rationale**: These are the only paths Claude Code's gateway protocol documents on the base URL.
+  `count_tokens` carries the full conversation, so it must be scrubbed too. The fast-mode check and the
+  WebFetch domain check go to `api.anthropic.com` directly and carry no prompt content.
+  [gateway protocol](https://code.claude.com/docs/en/llm-gateway-protocol.md)
+- **Alternatives**: An HTTPS man-in-the-middle proxy (`HTTPS_PROXY` plus a local CA). It sees all traffic, but
+  needs a trusted root CA and TLS interception, and gains nothing for the documented paths. Rejected.
+
+## R2 — Authentication
+
+- **Decision**: Forward `authorization`, `x-api-key`, `anthropic-beta` and `anthropic-version` verbatim. Never
+  store or log them.
+- **Rationale**: A base URL works with API keys, `ANTHROPIC_AUTH_TOKEN`, and claude.ai subscription logins. The
+  subscription OAuth flow needs both `Authorization` and its `anthropic-beta` value forwarded, or it fails
+  with 401. [connect](https://code.claude.com/docs/en/llm-gateway-connect.md),
+  [authentication](https://code.claude.com/docs/en/authentication.md)
+
+## R3 — Rewriting bodies vs. thinking signatures (top risk)
+
+- **Facts**: `thinking` blocks are signed. On current models, the signature records a fingerprint of
+  everything before the block: `system`, `tools`, and earlier messages. A changed prefix gets a 400 ("bound to
+  a different conversation"), or the block is silently dropped. Thinking blocks in the latest assistant
+  message must be returned unmodified. Claude Code's gateway guide warns that body-rewriting gateways break this
+  pairing. [prefix checks](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking/prefix-checks),
+  [thinking](https://platform.claude.com/docs/en/build-with-claude/thinking),
+  [gateway protocol](https://code.claude.com/docs/en/llm-gateway-protocol.md)
+- **Decision**: The check compares against **what was sent before**, not against the user's original text.
+  Rewriting is therefore safe if every re-sent leaf is rewritten to exactly the bytes sent the first time. A
+  per-session leaf cache (data-model.md) guarantees this. Its key is the raw leaf text, and its value is the
+  scrubbed bytes, fixed at first sight. Thinking and redacted-thinking blocks are never touched in either
+  direction. `tools` isn't rewritten.
+- **Consequences**:
+  - A proxy restart, or session eviction, in the middle of a conversation loses the cache. Leaves are then
+    re-scrubbed from scratch. With local detection only, that is usually byte-identical: spaCy and the pattern
+    detectors are deterministic, and ordinals are re-issued in history order. It isn't guaranteed, and the
+    confidential pass isn't deterministic. Documented behaviour: after a restart, start a new Claude Code
+    conversation if requests are rejected.
+  - Claude Code adds an attribution block as the first `system` block. Anthropic strips it only when it arrives
+    unchanged. The quickstart sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` so the proxy never alters it.
+- **Executed (R0).** A rewriting proxy (PrivAiTe) with deterministic local detection passed: 10 requests, up to
+  7 replayed thinking blocks, no signature errors. Non-deterministic detection (the confidential pass) relies on
+  the leaf cache and its single-flight rule, which the integration suite covers.
+- **Alternatives**: Strip thinking blocks from history. Rejected, because the API rejects modified thinking
+  blocks in the latest assistant turn during tool use. Disable thinking. Rejected, because it degrades Claude
+  Code.
+
+## R4 — Streaming restoration
+
+- **Decision**: One holdback restorer, used for `text_delta.text` (raw value inserted) and
+  `input_json_delta.partial_json` (JSON-string-escaped value inserted). Every other event is forwarded
+  immediately. Event order is preserved.
+- **Rationale**: Tokens can only appear inside JSON strings, so tool input streams through incrementally.
+  Holding tool input back until `content_block_stop` would starve Claude Code's stream idle timeout during long
+  file writes, and the gateway guide warns about exactly that. Event types:
+  [streaming](https://platform.claude.com/docs/en/build-with-claude/streaming).
+- **Alternatives**: Hold back the whole tool input and restore the parsed JSON. Rejected because of the idle
+  timeout. Synthetic `ping` keepalives would only paper over that.
+
+## R5 — Local detection (PII)
+
+- **Decision**: Presidio Analyzer with the spaCy model `en_core_web_lg` (3.8.0, already pinned in `uv.lock`).
+  Recognizers and categories:
+  `PERSON`→PERSON, `LOCATION`→ADDRESS, `EMAIL_ADDRESS`→EMAIL, `PHONE_NUMBER`→PHONE, `CREDIT_CARD`→CARD,
+  `IBAN_CODE`→IBAN, `US_SSN` / `UK_NHS` / other national-ID recognizers→NATIONALID, `IP_ADDRESS`→IP.
+  Excluded: `DATE_TIME`, `NRP`, `URL`. They are too noisy in code and outside FR-003. The minimum score is
+  configurable (`PII_PROXY_MIN_SCORE`, default 0.4). Analysis runs in a worker thread.
+- **Rationale**: Presidio bundles maintained recognizers with checksum validation (Luhn, IBAN) and an NER
+  backend. Over-scrubbing is acceptable under the spec as long as restoration keeps files correct.
+- **Performance**: running NER on a whole Claude Code request each turn (often 100k+ tokens) would break SC-004.
+  The leaf cache limits analysis to new leaves. spaCy is loaded without the dependency parser; spike S2
+  confirms which other components Presidio's context enhancement needs (it reads lemmas) and drops the rest,
+  then measures NER latency on 20 KB and 100 KB leaves.
+- **Size limit**: spaCy rejects texts over `nlp.max_length` (1 000 000 chars). NER input goes through the same
+  line-based chunker as the confidential pass (chunks of 100 000 chars, 200-char overlap) instead of failing
+  closed on large leaves.
+- **Alternatives**: GLiNER or other transformer NER. Better recall on unusual names, but slower on CPU and adds
+  torch. The confidential pass covers that gap instead. `en_core_web_sm` or `md` would be faster, with weaker
+  NER. Revisit if benchmarks miss SC-004.
+
+## R6 — Session identity
+
+- **Decision**: Key the vault and leaf cache on `x-claude-code-session-id`. A content request without it gets
+  400.
+- **Rationale**: The gateway protocol documents the header as "a unique identifier for the current Claude Code
+  session". Subagents keep the session id and add `x-claude-code-agent-id`, so they share the vault, which is
+  correct. [gateway protocol](https://code.claude.com/docs/en/llm-gateway-protocol.md)
+- **Alternatives**: One vault per process. Simpler, but restart determinism gets worse because interleaved
+  sessions change ordinal order. Hashing the first user message. Fragile under compaction.
+
+## R7 — Secret detection
+
+- **Verified** (executed 2026-11-21): `detect-secrets` `scan_line` returned `'ghp'` for a full GitHub token, the
+  capture group only, and `'7E'` as a hex high-entropy secret. It identifies lines, not spans. Rejected.
+- **Decision**: The gitleaks binary at a pinned version, invoked once per request through `gitleaks stdin` with
+  a JSON report, over the request's cache-miss leaves joined by separator lines. Findings are mapped back to
+  leaves by line, and the `Secret` field is located within that line. Each finding becomes a `SECRET` span.
+- **Rationale**: Gitleaks is the maintained engine for known credential formats: rule regexes, keyword
+  pre-filters, entropy thresholds, allowlists. Reusing the binary avoids reimplementing that engine. Vendoring
+  its rule file into Python would mean rewriting the keyword, entropy and allowlist semantics, which is a
+  parallel implementation that drifts.
+- **Not yet executed.** The pinned version, the `stdin` subcommand flags, and the per-invocation latency get
+  confirmed in spike S2. The spike also confirms the generic rule catches `password=...` assignments.
+- **Pinning**: gitleaks isn't installable through uv. `scripts/install-gitleaks.sh` downloads the pinned release
+  into `.tools/` and verifies its sha256. The proxy refuses to start when `gitleaks version` differs from the
+  pinned version.
+- **Alternatives**: Presidio custom PatternRecognizers with hand-written secret regexes. Rejected as
+  hand-rolled. TruffleHog. A heavier binary aimed at verification against live services, and the proxy must
+  never call those.
+
+## R8 — Confidential pass (Privatemode)
+
+- **Facts**: The Privatemode proxy exposes an OpenAI-compatible `/v1/chat/completions` on localhost, and handles
+  attestation and encryption itself. All chat models "support streaming, tool calling, and structured outputs"
+  through `response_format`. `json_schema` isn't named explicitly. The docs advise an explicit JSON instruction
+  and `frequency_penalty` > 0 to avoid endless whitespace. Standard-tier limits: 200k prompt tokens/min and 100
+  requests/min. Prices per 1M tokens: GLM-5.3-Flash €0.20 in, €0.65 out; gpt-oss-120b €0.20 in, €0.65 out
+  (usage multiplier 2.0); GLM-5.3 €1.55 in, €5.74 out.
+  [proxy](https://docs.privatemode.ai/api/proxy-configuration/),
+  [structured outputs](https://docs.privatemode.ai/api/structured-outputs/),
+  [models](https://docs.privatemode.ai/models/overview/), [rate limits](https://docs.privatemode.ai/rate-limits/),
+  [pricing](https://docs.privatemode.ai/pricing/)
+- **Decision**: Default model `glm-flash-latest`: cheapest tier, 1M context, multiplier 1.0. It's configurable.
+  The contract is in [contracts/confidential-detection.md](contracts/confidential-detection.md). The Privatemode
+  proxy holds its own key (`--api-key`).
+- **Risk**: the first request of a resumed long session is entirely cache misses and can exceed 200k prompt
+  tokens/min. The 429 surfaces as a 503 the client retries (FR-014). Acceptable for the P2 story, and noted in
+  the quickstart.
+- **Not yet executed.** Spike S3 confirms that `response_format: json_schema` is honoured by
+  `glm-flash-latest` and measures latency per 24k-character chunk.
+
+## R9 — Stack
+
+- **Decision**: Python 3.13, `uv`. Starlette plus uvicorn for the server. httpx for upstream. `httpx-sse` to
+  parse upstream SSE. pydantic-settings for configuration. Presidio and spaCy. The gitleaks binary. Tests use
+  pytest, pytest-asyncio and respx. Ruff for linting.
+- **Change from scaffold**: drop `fastapi`. The proxy forwards raw JSON and needs no request models,
+  validation, or OpenAI docs layer. Starlette, which FastAPI sits on, covers routing and streaming responses.
+- **Rationale for `httpx-sse`**: SSE framing (multi-line `data:`, comments, retry fields) shouldn't be
+  hand-parsed. Outbound SSE is re-serialised from parsed events, keeping event names and order.
+
+## R10 — Errors and retries
+
+- **Decision**: Proxy-originated errors use the Anthropic error shape. Deterministic failures get 4xx, which
+  Claude Code doesn't retry. Transient confidential-pass failures get 502/503, which it does retry. Upstream
+  errors are forwarded unmodified, because Claude Code's recovery matches their wording. Table in
+  [contracts/http-interface.md](contracts/http-interface.md#proxy-originated-errors).
+  [errors](https://code.claude.com/docs/en/errors.md), [API errors](https://platform.claude.com/docs/en/api/errors)
+
+## R11 — Placeholder format
+
+- **Decision**: `PII_<CATEGORY>_<NNNN>`, with a fixed 4-digit ordinal so a following digit can't extend it. It
+  is identifier-safe and Markdown-inert, and literals are escaped.
+  Rationale and rules are in [contracts/placeholder-format.md](contracts/placeholder-format.md).
+- **Alternatives**: `<EMAIL_1>`. Reads as a tag in HTML, XML and JSX. Realistic fake values (a fake email
+  standing in for a real one). The model reasons more naturally about them, but they can't be told apart from
+  real data on the way back, so restoration becomes guesswork.

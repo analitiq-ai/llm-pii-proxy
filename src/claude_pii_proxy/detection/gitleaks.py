@@ -104,7 +104,7 @@ class SecretDetector:
         return [findings_to_spans(t, f) for t, f in zip(texts, findings, strict=True)]
 
     async def _spawn(self) -> asyncio.subprocess.Process:
-        # Empty environment and cwd "/": no GITLEAKS_* variable or .gitleaks.toml can change the rules.
+        # Empty environment, cwd "/": no GITLEAKS_* variable or .gitleaks.toml can change the rules.
         try:
             process = await asyncio.create_subprocess_exec(
                 str(self._binary),
@@ -198,7 +198,7 @@ def findings_to_spans(text: str, findings: Sequence[Finding]) -> list[DetectedSp
             start, end = line_bounds(f.start_line, f.end_line)
             spans.extend(_encoded_runs(text, start, end, f))
             continue
-        # end_line can understate a multi-line secret (0 for a key at the end of a text with no final
+        # end_line can understate a multi-line secret (0 for a key ending a text with no final
         # newline); the secret itself says how many lines it covers.
         start, end = line_bounds(f.start_line, max(f.end_line, f.start_line + f.secret.count("\n")))
         found = False
@@ -213,7 +213,7 @@ def findings_to_spans(text: str, findings: Sequence[Finding]) -> list[DetectedSp
 
 
 def _encoded_runs(text: str, start: int, end: int, f: Finding) -> list[DetectedSpan]:
-    """The encoded segment holding a decoded secret. Columns are approximate, so widen to whole runs."""
+    """The encoded segment holding a decoded secret. Columns are approximate: widen to runs."""
     if f.start_line != f.end_line:
         raise ScrubFailed("encoded secret spans several lines")
     lo = start + max(0, f.start_column - 2)

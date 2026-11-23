@@ -1,4 +1,4 @@
-"""The secret detector process (contracts/secret-detector.md). Needs the built binary; never skipped."""
+"""The secret detector process (contracts/secret-detector.md). Needs the binary; never skipped."""
 
 import asyncio
 import os

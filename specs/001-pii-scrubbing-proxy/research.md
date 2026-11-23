@@ -160,7 +160,12 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
 - **Postal addresses (found in T047): not covered.** The R5 mapping `LOCATION`→ADDRESS assumed spaCy's
   location entities cover postal addresses. They don't: NER tags the city and sometimes the street name
   (often as PERSON), and the house number and ZIP code are never detected. Full-coverage recall is 0% on the
-  corpus against SC-003's 70%. Open decision; see tasks.md T047.
+  corpus against SC-003's 70%. Decision (user, 2026-11-23): scrub what can be found locally, leave the rest to
+  the confidential pass. `detection/addresses.py` adds a pattern recognizer for US and UK formats: house
+  number, street words and a USPS Publication 28 or UK street suffix, then optionally a locality; or city,
+  state and ZIP alone; or a UK postcode alone. It is case-sensitive, since capitalisation is what separates
+  `12 Main Street` from prose. Address recall 94.6%. The benchmark now resolves overlaps as the scrubber
+  does before scoring, so right-category figures reflect what is actually sent.
 - **Latency (T048, 2026-11-23)**: proxy time to first byte on 20 KB of corpus text (every line PII-dense)
   measured a 723 ms median. Presidio's default context enhancer reads lemmas, which are all empty once the
   lemmatizer is disabled, so it never changed a result (0 of 240 corpus records differ) yet cost about 180 ms;

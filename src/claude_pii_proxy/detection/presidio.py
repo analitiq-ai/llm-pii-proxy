@@ -11,13 +11,14 @@ from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
 from spacy.util import compile_infix_regex
 
-from claude_pii_proxy.detection import DetectedSpan, Stage
+from claude_pii_proxy.detection import DetectedSpan, Stage, addresses
 from claude_pii_proxy.detection.chunking import chunk
 from claude_pii_proxy.vault import Category
 
 ENTITY_CATEGORIES: dict[str, Category] = {
     "PERSON": Category.PERSON,
     "LOCATION": Category.ADDRESS,
+    addresses.ENTITY: Category.ADDRESS,
     "EMAIL_ADDRESS": Category.EMAIL,
     "PHONE_NUMBER": Category.PHONE,
     "CREDIT_CARD": Category.CARD,
@@ -96,6 +97,7 @@ def build_engine() -> AnalyzerEngine:
     engine.registry.add_recognizer(
         CreditCardRecognizer(patterns=[*CreditCardRecognizer.PATTERNS, _MASTERCARD_2_SERIES])
     )
+    engine.registry.add_recognizer(addresses.recognizer())
     return engine
 
 

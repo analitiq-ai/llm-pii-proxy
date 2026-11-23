@@ -26,6 +26,7 @@ def test_entity_map_is_research_r5():
     assert ENTITY_CATEGORIES == {
         "PERSON": Category.PERSON,
         "LOCATION": Category.ADDRESS,
+        "STREET_ADDRESS": Category.ADDRESS,
         "EMAIL_ADDRESS": Category.EMAIL,
         "PHONE_NUMBER": Category.PHONE,
         "CREDIT_CARD": Category.CARD,
@@ -138,3 +139,32 @@ async def test_names_in_key_value_fields_found(detector):
     got = found(text, [t for s in spans for t in trim_span(text, s)])
     assert ("Gail Harrison", Category.PERSON) in got
     assert ("Teresa Phillips", Category.PERSON) in got
+
+
+STREET_ADDRESSES = [
+    "1600 Pennsylvania Avenue NW, Washington, DC 20500",
+    "350 Fifth Ave, New York, NY 10118",
+    "4104 James Passage, West Brendafort, NY 37660-1234",
+    "742 Evergreen Terrace",
+    "221B Baker Street, London NW1 6XE",
+    "10 Downing Street, London SW1A 2AA",
+    "3 Abbey Rd",
+    "Springfield, IL 62704",
+    "EC1A 1BB",
+]
+
+
+@pytest.mark.parametrize("address", STREET_ADDRESSES)
+async def test_street_address_found_whole(detector, address):
+    text = f"Ship the replacement to {address} by Friday.\n"
+    (spans,) = await detector.detect([text])
+    assert (address, Category.ADDRESS) in found(text, spans)
+
+
+async def test_code_and_prose_numbers_are_not_addresses(detector):
+    text = (
+        "HTTP 404 Not Found after 3 Retries; see line 12 Error Handling.\n"
+        "for i in range(10): Way = 2\nThe 2 Way handshake took 30 Seconds.\n"
+    )
+    (spans,) = await detector.detect([text])
+    assert not [s for s in spans if s.category is Category.ADDRESS]

@@ -1,7 +1,8 @@
 """SC-003: local detection recall on the labelled corpus. Run with `pytest -m benchmark`.
 
 A labelled value counts as found when detected spans of any category cover every non-space
-character of it: that is what keeps it from being sent. Category-correct recall is printed too.
+character of it, after overlaps are resolved as the scrubber does: that is what keeps it from being
+sent. Category-correct recall is printed too.
 """
 
 import json
@@ -9,7 +10,7 @@ from collections import Counter
 
 import pytest
 
-from claude_pii_proxy.detection import trim_span
+from claude_pii_proxy.detection import resolve_overlaps, trim_span
 from claude_pii_proxy.detection.gitleaks import SecretDetector
 from claude_pii_proxy.detection.presidio import PresidioDetector
 from claude_pii_proxy.vault import Category
@@ -47,7 +48,10 @@ async def test_local_recall(presidio_engine, secret_detector_binary):
     total, covered, right_category = Counter(), Counter(), Counter()
     for i, record in enumerate(records):
         text = record["text"]
-        detected = [t for spans in found_by for s in spans[i] for t in trim_span(text, s)]
+        # As the scrubber resolves them: trimmed, then the longest of overlapping spans wins.
+        detected = resolve_overlaps(
+            t for spans in found_by for s in spans[i] for t in trim_span(text, s)
+        )
         for label in record["spans"]:
             category = Category(label["category"])
             chars = {j for j in range(label["start"], label["end"]) if not text[j].isspace()}

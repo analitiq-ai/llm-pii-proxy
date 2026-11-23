@@ -191,7 +191,33 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     plus three rules (`uri-credentials`, `password-literal` for quoted literals, `password-line` for an
     unquoted value alone on its line) caught 13 of 13 across both sample sets. It flagged nothing in 70 KB of
     real Python, where a looser single password rule had flagged `password=password)` and similar code.
-    Extending the config is gitleaks' own mechanism, not a re-implementation.
+    Extending the config is gitleaks' own mechanism, not a re-implementation. The rules file as executed:
+
+    ```toml
+    [extend]
+    useDefault = true
+
+    [[rules]]
+    id = "uri-credentials"
+    description = "Password embedded in a URI (connection strings)"
+    regex = '''[a-zA-Z][a-zA-Z0-9+.\-]*://[^:/?#\s@]+:([^@\s/]+)@'''
+    secretGroup = 1
+    keywords = ["://"]
+
+    [[rules]]
+    id = "password-literal"
+    description = "Quoted string literal assigned to a password-like key (code, JSON, YAML)"
+    regex = '''(?i)[a-z0-9_.\-]*(?:passw(?:or)?d|passwd|pass|pwd)["']?\s*(?:[:=]|:=|=>)\s*["']([^"'\s]{4,})["']'''
+    secretGroup = 1
+    keywords = ["pass", "pwd"]
+
+    [[rules]]
+    id = "password-line"
+    description = "Unquoted value of a password-like key alone on its line (.env, YAML, INI)"
+    regex = '''(?im)^\s*(?:export\s+)?[a-z0-9_.\-]*(?:passw(?:or)?d|passwd|pass|pwd)\s*[:=]\s*([^\s"'#]{4,})\s*$'''
+    secretGroup = 1
+    keywords = ["pass", "pwd"]
+    ```
   - **Latency fails the target.** About 500 ms per call whatever the input size: process start is about 290 ms
     (`gitleaks version` alone), the default rules add about 170 ms to compile, and scanning 100 KB adds about
     70 ms. The floor is per process, so a fresh process per request costs about 0.5 s on every request with
@@ -236,7 +262,7 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
 ## R9 — Stack
 
 - **Decision**: Python 3.13, `uv`. Starlette plus uvicorn for the server. httpx for upstream. `httpx-sse` to
-  parse upstream SSE. pydantic-settings for configuration. Presidio and spaCy. The gitleaks binary. Tests use
+  parse upstream SSE. pydantic-settings for configuration. Presidio and spaCy. gitleaks as a Go library in a child process (R7). Tests use
   pytest, pytest-asyncio and respx. Ruff for linting.
 - **Change from scaffold**: drop `fastapi`. The proxy forwards raw JSON and needs no request models,
   validation, or OpenAI docs layer. Starlette, which FastAPI sits on, covers routing and streaming responses.

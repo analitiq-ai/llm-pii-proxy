@@ -116,6 +116,7 @@ specs/001-pii-scrubbing-proxy/
 src/claude_pii_proxy/
 ├── __main__.py          # load Settings and operator lists, start the secret detector, run uvicorn
 ├── config.py            # Settings (pydantic-settings); loopback-only validation; pinned gitleaks version
+├── errors.py            # ProxyError types -> status, Anthropic error body (http-interface.md error table)
 ├── operator_lists.py    # always-scrub / never-scrub file loading and validation (FR-018)
 ├── app.py               # Starlette routes, upstream forwarding, proxy error responses, restart hint
 ├── sessions.py          # Session store: per-session Vault + single-flight leaf cache, idle eviction
@@ -130,7 +131,7 @@ src/claude_pii_proxy/
     ├── chunking.py      # line-based chunker with overlap, shared by NER and the confidential pass
     ├── presidio.py      # Presidio analyzer setup (parser disabled), entity -> Category map
     ├── gitleaks.py      # secret detector process: start, version check, JSON-lines calls, finding -> span
-    └── gitleaks.toml    # rules: gitleaks defaults + uri-credentials, password-literal, password-line
+    ├── gitleaks.toml    # rules: gitleaks defaults + uri-credentials, password-literal, password-line (R7)
     └── confidential.py  # Privatemode client: schema call, span location
 
 scripts/
@@ -152,7 +153,7 @@ independently deliverable).
 
 ## Delivery order
 
-- **US1 (P1)**: spike S2 → vault, grammar and operator lists → walker, pipeline, chunker and local detectors →
+- **US1 (P1)**: vault, grammar and operator lists → walker, pipeline, chunker and local detectors →
   single-flight leaf cache → notice → restore and SSE → app routes and errors → no-leak, fail-closed,
   concurrency and benchmark suites → task-quality run (V10).
 - **US2 (P2)**: spike S3 → `detection/confidential.py` → enable switch → mocked integration and real-Privatemode

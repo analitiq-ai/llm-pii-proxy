@@ -220,7 +220,9 @@ the detection service only ever received text the local pass had already scrubbe
   them would break the model's integrity checks on earlier turns. Operator-specific text in MCP tool
   descriptions is a known gap.
 - Tasks that need the model to *see* a literal value cannot succeed, for example "does this email look valid"
-  or "fix the regex for these phone formats". Placeholders hide the value's content by design.
+  or "fix the regex for these phone formats". Placeholders hide the value's content by design. Each placeholder
+  replaces the whole value: no part of it, such as an email's domain, stays visible. A task that needs part of a
+  value has Claude extract it with a tool from the real file, which costs an extra tool call.
 - Build vs. adopt: the open-source PrivAiTe proxy was evaluated by running it (research.md R0). It passed the
   integrity-check test but failed FR-002 (instructions unscrubbed: it leaked the OS username), FR-004
   (inconsistent placeholders), and structure preservation. Building is the chosen path.

@@ -216,4 +216,6 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   Rationale and rules are in [contracts/placeholder-format.md](contracts/placeholder-format.md).
 - **Alternatives**: `<EMAIL_1>`. Reads as a tag in HTML, XML and JSX. Realistic fake values (a fake email
   standing in for a real one). The model reasons more naturally about them, but they can't be told apart from
-  real data on the way back, so restoration becomes guesswork.
+  real data on the way back, so restoration becomes guesswork. Partial placeholders that keep part of a value
+  visible (`PII_EMAIL_0001@example.com`): rejected by the user (2026-11-23). A domain can identify a person at a
+  small company. Tasks needing part of a value use a tool on the real file instead (R0b).

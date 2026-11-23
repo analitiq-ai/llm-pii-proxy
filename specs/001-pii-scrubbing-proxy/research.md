@@ -170,9 +170,9 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
 - **Verified** (executed 2026-11-21): `detect-secrets` `scan_line` returned `'ghp'` for a full GitHub token, the
   capture group only, and `'7E'` as a hex high-entropy secret. It identifies lines, not spans. Rejected.
 - **Decision** (user, 2026-11-23, after S2): gitleaks **as a Go library** inside a long-lived child process
-  that loads the rules once (contracts/secret-detector.md). Each request with cache-miss leaves sends them,
-  joined by separator lines. Findings are mapped back to leaves by line, and the `Secret` field is located
-  within those lines. Each finding becomes a `SECRET` span.
+  that loads the rules once (contracts/secret-detector.md). Each request with cache-miss leaves sends them as
+  a list, scanned one by one, so a multi-line secret can't span two leaves. The `Secret` field is located
+  within the finding's lines. Each finding becomes a `SECRET` span.
 - **Rationale**: Gitleaks is the maintained engine for known credential formats: rule regexes, keyword
   pre-filters, entropy thresholds, allowlists. Reusing the engine avoids reimplementing it. Vendoring
   its rule file into Python would mean rewriting the keyword, entropy and allowlist semantics, which is a

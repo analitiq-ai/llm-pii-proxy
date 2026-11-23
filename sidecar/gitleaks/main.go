@@ -19,21 +19,23 @@ import (
 const gitleaksModule = "github.com/zricethezav/gitleaks/v8"
 
 type request struct {
-	ID   int    `json:"id"`
-	Text string `json:"text"`
+	ID    int      `json:"id"`
+	Texts []string `json:"texts"`
 }
 
 type finding struct {
-	Rule      string   `json:"rule"`
-	Secret    string   `json:"secret"`
-	StartLine int      `json:"start_line"`
-	EndLine   int      `json:"end_line"`
-	Tags      []string `json:"tags"`
+	Rule        string   `json:"rule"`
+	Secret      string   `json:"secret"`
+	StartLine   int      `json:"start_line"`
+	EndLine     int      `json:"end_line"`
+	StartColumn int      `json:"start_column"`
+	EndColumn   int      `json:"end_column"`
+	Tags        []string `json:"tags"`
 }
 
 type response struct {
-	ID       int       `json:"id"`
-	Findings []finding `json:"findings"`
+	ID       int         `json:"id"`
+	Findings [][]finding `json:"findings"` // one list per request text
 }
 
 func fail(code int, what string, err error) {
@@ -96,9 +98,14 @@ func main() {
 		if err := json.Unmarshal(in.Bytes(), &req); err != nil {
 			fail(3, "request", err)
 		}
-		res := response{ID: req.ID, Findings: []finding{}}
-		for _, f := range d.DetectString(req.Text) {
-			res.Findings = append(res.Findings, finding{f.RuleID, f.Secret, f.StartLine, f.EndLine, f.Tags})
+		res := response{ID: req.ID, Findings: make([][]finding, len(req.Texts))}
+		for i, text := range req.Texts {
+			res.Findings[i] = []finding{}
+			for _, f := range d.DetectString(text) {
+				res.Findings[i] = append(res.Findings[i], finding{
+					f.RuleID, f.Secret, f.StartLine, f.EndLine, f.StartColumn, f.EndColumn, f.Tags,
+				})
+			}
 		}
 		if err := out.Encode(res); err != nil {
 			fail(4, "stdout", err)

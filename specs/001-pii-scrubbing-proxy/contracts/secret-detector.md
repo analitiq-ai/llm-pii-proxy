@@ -19,17 +19,23 @@ which extends gitleaks' default rules.
 
 One JSON object per line, UTF-8. One request in flight at a time; the proxy serialises calls.
 
-Request: `{"id": <int>, "text": "<cache-miss leaves joined by separator lines>"}`
+Request: `{"id": <int>, "texts": ["<cache-miss leaf>", ...]}`. Each leaf is scanned on its own, so a multi-line
+secret can never span two leaves and no line-to-leaf mapping is needed.
 
-Response:
-`{"id": <same>, "findings": [{"rule": "<RuleID>", "secret": "<text>", "start_line": <n>, "end_line": <n>, "tags": [...]}]}`
+Response: `{"id": <same>, "findings": [[<finding>, ...], ...]}`, one list per request text, where a finding is
+`{"rule", "secret", "start_line", "end_line", "start_column", "end_column", "tags"}`.
 
 ## Finding → span
 
 - `start_line` and `end_line` are 0-based (gitleaks' own numbering, observed when building the detector).
+  `end_line` can understate a multi-line secret (a private key at the end of a text with no final newline
+  reports `end_line` 0), so the search runs to `max(end_line, start_line + newlines in secret)`.
 - The proxy locates `secret` in the text between `start_line` and `end_line`; each occurrence becomes a
-  `SECRET` span. Columns aren't used: they were off by one in S2.
+  `SECRET` span. Columns aren't used for this: they are 1-based on a text's first line and shifted by one on
+  later lines.
 - A finding tagged `decoded:*` has a `secret` that doesn't occur in the text: it was found inside base64, hex or
-  percent-encoded data. The encoded segment must be replaced instead. If that segment can't be located, the
-  request fails closed (FR-007). In S2 the encoded form was also caught by `generic-api-key`; this rule covers
-  the case where it isn't.
+  percent-encoded data. Its columns point at the encoded segment (approximately, as above). The proxy widens
+  that column range to the whole run of encoding characters (`A-Z a-z 0-9 + / = _ - %`) that overlaps it, and
+  replaces the run. Over-scrubbing a few characters is reversible; leaving part of the encoding is not.
+- A finding the proxy can't locate fails the request closed (FR-007). In S2 the encoded form was also caught by
+  `generic-api-key`; the decoded rule covers the case where it isn't.

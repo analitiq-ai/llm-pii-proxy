@@ -119,7 +119,8 @@ src/claude_pii_proxy/
 ├── app.py               # Starlette routes, upstream forwarding, proxy error responses, restart hint
 ├── sessions.py          # Session store: per-session Vault + single-flight leaf cache, idle eviction
 ├── vault.py             # Category, Placeholder token grammar, append-only Vault, seeding
-├── scrub.py             # request walker (skip-list) + three-stage leaf pipeline + boundary rule
+├── walker.py            # request walker (skip-list): collect leaves, apply scrubbed leaves
+├── scrub.py             # three-stage leaf pipeline + boundary rule
 ├── notice.py            # constant placeholder notice and its append to `system` (FR-019)
 ├── restore.py           # holdback restorer (text / JSON-escaped), non-stream JSON restore
 ├── sse.py               # upstream SSE events -> restored downstream SSE, order preserved

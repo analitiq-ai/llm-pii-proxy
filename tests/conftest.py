@@ -1,14 +1,18 @@
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
 
+from claude_pii_proxy.app import create_app
 from claude_pii_proxy.config import Settings
-from claude_pii_proxy.detection import DetectedSpan, Stage
+from claude_pii_proxy.detection import DetectedSpan, Detector, Stage
 from claude_pii_proxy.detection.presidio import build_engine
 from claude_pii_proxy.operator_lists import OperatorLists
+from claude_pii_proxy.scrub import Pipeline
+from claude_pii_proxy.sessions import SessionStore
 from claude_pii_proxy.vault import Category
 
 UPSTREAM = "https://upstream.test"
@@ -78,3 +82,29 @@ def secret_detector_binary() -> Path:
     if not SECRET_DETECTOR_BINARY.exists():
         pytest.fail("secret detector not built: run scripts/build-secret-detector.sh")
     return SECRET_DETECTOR_BINARY
+
+
+@pytest.fixture
+async def make_proxy(upstream):
+    """Builds the proxy over the given detectors; returns a client talking to it in-process."""
+    clients: list[httpx.AsyncClient] = []
+
+    def make(
+        detectors: Sequence[Detector],
+        *,
+        always_scrub: Mapping[Category, Sequence[str]] | None = None,
+        never_scrub: frozenset[str] = frozenset(),
+    ) -> httpx.AsyncClient:
+        upstream_client = httpx.AsyncClient(base_url=UPSTREAM)
+        app = create_app(
+            pipeline=Pipeline(detectors, never_scrub),
+            sessions=SessionStore(always_scrub or {}, idle_ttl_s=3600),
+            upstream=upstream_client,
+        )
+        proxy = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://proxy")
+        clients.extend([upstream_client, proxy])
+        return proxy
+
+    yield make
+    for client in clients:
+        await client.aclose()

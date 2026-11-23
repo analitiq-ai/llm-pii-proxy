@@ -5,7 +5,8 @@ import threading
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from presidio_analyzer import AnalyzerEngine, Pattern
+from presidio_analyzer import AnalyzerEngine, Pattern, RecognizerResult
+from presidio_analyzer.context_aware_enhancers import ContextAwareEnhancer
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
 from spacy.util import compile_infix_regex
@@ -47,6 +48,30 @@ class Analyzer(Protocol):
     ) -> list[Any]: ...
 
 
+class _NoContextBoost(ContextAwareEnhancer):
+    """Presidio's default enhancer boosts scores from the lemmas of nearby words. With the
+    lemmatizer disabled (S2) every lemma is empty, so it never changes a result, yet it cost about
+    180 ms per 20 KB (T048). Identical output on the whole T046 corpus."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            context_similarity_factor=0,
+            min_score_with_context_similarity=0,
+            context_prefix_count=0,
+            context_suffix_count=0,
+        )
+
+    def enhance_using_context(
+        self,
+        text: str,
+        raw_results: list[RecognizerResult],
+        nlp_artifacts: Any,
+        recognizers: Any,
+        context: list[str] | None = None,
+    ) -> list[RecognizerResult]:
+        return raw_results
+
+
 def build_engine() -> AnalyzerEngine:
     provider = NlpEngineProvider(
         nlp_configuration={
@@ -54,7 +79,11 @@ def build_engine() -> AnalyzerEngine:
             "models": [{"lang_code": "en", "model_name": "en_core_web_lg"}],
         }
     )
-    engine = AnalyzerEngine(nlp_engine=provider.create_engine(), supported_languages=["en"])
+    engine = AnalyzerEngine(
+        nlp_engine=provider.create_engine(),
+        supported_languages=["en"],
+        context_aware_enhancer=_NoContextBoost(),
+    )
     nlp = engine.nlp_engine.nlp["en"]
     for name in _UNUSED_SPACY_COMPONENTS:
         nlp.disable_pipe(name)

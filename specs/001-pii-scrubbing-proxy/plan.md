@@ -85,7 +85,7 @@ Each spike is throwaway code in a scratch directory. Its result is written into 
 | Spike | Question | Pass condition |
 |---|---|---|
 | **S1** | Does deterministic re-scrubbing survive thinking-signature prefix checks? (R3) | **Passed** (research R0), run through PrivAiTe against the real API: 10 requests, up to 7 replayed thinking blocks, no errors |
-| **S2** | gitleaks: version to pin, `stdin` invocation and JSON fields, latency per call, coverage of `password=` assignments (R7). spaCy: which components Presidio needs; NER latency (R5) | Findings carry line plus secret; under 100 ms for 100 KB; pinned version and sha256 recorded. NER latency recorded for 20 KB and 100 KB leaves |
+| **S2** | gitleaks: version to pin, `stdin` invocation and JSON fields, latency per call, coverage of `password=` assignments (R7). spaCy: which components Presidio needs; NER latency (R5) | **Partly failed** (R5, R7): version, invocation, coverage (with a project config) and spaCy trim settled; gitleaks costs about 500 ms per call, against a 100 ms target. Open decision in R7 |
 | **S3** | Privatemode `response_format: json_schema` on `glm-flash-latest`; latency per 24k-char chunk (R8) | Schema-conformant output on 20 sample chunks; latency recorded |
 
 If S2's NER latency on a 20 KB leaf misses SC-004, revisit the model size (R5 alternatives) before building.

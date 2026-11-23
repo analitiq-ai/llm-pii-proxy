@@ -133,6 +133,21 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   The leaf cache limits analysis to new leaves. spaCy is loaded without the dependency parser; spike S2
   confirms which other components Presidio's context enhancement needs (it reads lemmas) and drops the rest,
   then measures NER latency on 20 KB and 100 KB leaves.
+- **Executed (S2, 2026-11-23)**, medians on this machine's CPU:
+
+  | Leaf | spaCy full | spaCy tok2vec+ner | Presidio (tok2vec+ner) |
+  |---|---|---|---|
+  | 20 KB code | 326 ms | 187 ms | 203 ms |
+  | 20 KB PII-dense CSV | 236 ms | 126 ms | 444 ms |
+  | 100 KB mixed | 1444 ms | 793 ms | 2315 ms |
+
+  - Presidio gives **identical results** (530 of 530 spans) with `tagger`, `attribute_ruler`, `lemmatizer` and
+    `parser` disabled, so the pipeline keeps only `tok2vec` and `ner`.
+  - Within Presidio, `PhoneRecognizer` costs about 200 ms on 20 KB of PII-dense text and `EmailRecognizer` about
+    65 ms. On 100 KB, about 1.2 s is spent outside spaCy and the recognizers.
+  - `en_core_web_sm` is no faster with the same trim (120 vs 123 ms on 20 KB) and finds only 29 of the 116
+    names `lg` finds. `lg` stays.
+  - SC-004: a 20 KB leaf fits (200–450 ms) with no margin. A 100 KB file read takes about 2.3 s.
 - **Size limit**: spaCy rejects texts over `nlp.max_length` (1 000 000 chars). NER input goes through the same
   line-based chunker as the confidential pass (chunks of 100 000 chars, 200-char overlap) instead of failing
   closed on large leaves.
@@ -161,8 +176,26 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   pre-filters, entropy thresholds, allowlists. Reusing the binary avoids reimplementing that engine. Vendoring
   its rule file into Python would mean rewriting the keyword, entropy and allowlist semantics, which is a
   parallel implementation that drifts.
-- **Not yet executed.** The pinned version, the `stdin` subcommand flags, and the per-invocation latency get
-  confirmed in spike S2. The spike also confirms the generic rule catches `password=...` assignments.
+- **Executed (S2, 2026-11-23)**, gitleaks **8.30.1** (linux x64 tarball sha256
+  `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`, verified against the release checksums):
+  - Invocation: `gitleaks stdin --no-banner -l error -f json -r - --exit-code 0 --ignore-gitleaks-allow -c <ours>`.
+    Fields used: `RuleID`, `StartLine`, `EndLine`, `Secret`. `StartColumn` was off by one, so the secret is
+    located by searching `Secret` in the text, as planned. A private key's `Secret` spans several lines.
+  - `--ignore-gitleaks-allow` is required: without it a `# gitleaks:allow` comment in the user's data hides a
+    secret. Config precedence also reads `GITLEAKS_CONFIG`, `GITLEAKS_CONFIG_TOML`, a `.gitleaks.toml` and a
+    `.gitleaksignore` from the working directory, so the proxy always passes `-c` and `-i` and clears those
+    variables. Content must never be able to change the rules.
+  - Coverage: the default rules caught 6 of 9 samples. They missed a quoted `password = "..."`, an unquoted
+    `db_pass:` line and a `postgres://user:pass@host` URI. A project config with `[extend] useDefault = true`
+    plus three rules (`uri-credentials`, `password-literal` for quoted literals, `password-line` for an
+    unquoted value alone on its line) caught 13 of 13 across both sample sets. It flagged nothing in 70 KB of
+    real Python, where a looser single password rule had flagged `password=password)` and similar code.
+    Extending the config is gitleaks' own mechanism, not a re-implementation.
+  - **Latency fails the target.** About 500 ms per call whatever the input size: process start is about 290 ms
+    (`gitleaks version` alone), the default rules add about 170 ms to compile, and scanning 100 KB adds about
+    70 ms. The floor is per process, so a fresh process per request costs about 0.5 s on every request with
+    new content, which alone uses SC-004's whole budget. **Open decision**: a long-lived detector process that
+    loads the rules once (gitleaks used as a Go library, about 70 ms per 100 KB), or relax SC-004.
 - **Pinning**: gitleaks isn't installable through uv. `scripts/install-gitleaks.sh` downloads the pinned release
   into `.tools/` and verifies its sha256. The proxy refuses to start when `gitleaks version` differs from the
   pinned version.

@@ -184,4 +184,4 @@ async def test_restore_inverts_scrub(text, known):
     det = FixedDetector([("Ann Lee", Category.PERSON), ("x.y", Category.ADDRESS)])
     (scrubbed,), _ = await scrub(Pipeline([RegexDetector(), det]), [text], vault)
     assert isinstance(scrubbed, str)
-    assert restore_text(scrubbed, vault) == text
+    assert restore_text(scrubbed, vault)[0] == text

@@ -111,6 +111,31 @@ def test_trace_file_owned_by_another_user_rejected(traces, monkeypatch):
         FileTap.open(traces, DAY_S, UID)
 
 
+def vanish_on_lstat(monkeypatch, gone) -> list[str]:
+    """Makes `gone` disappear between the directory listing and its lstat. Returns the paths that
+    vanished, so a test can show its code reached that lstat."""
+    real_lstat = os.lstat
+    vanished: list[str] = []
+
+    def lstat(path, *args, **kwargs):
+        if os.fspath(path) == os.fspath(gone):
+            vanished.append(os.fspath(path))
+            raise FileNotFoundError(path)
+        return real_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(file_tap.os, "lstat", lstat)
+    return vanished
+
+
+def test_trace_file_removed_during_open_is_skipped(traces, monkeypatch):
+    gone = traces / "gone.jsonl"
+    gone.write_text("")
+    gone.chmod(0o600)
+    vanished = vanish_on_lstat(monkeypatch, gone)
+    FileTap.open(traces, DAY_S, UID)
+    assert vanished == [os.fspath(gone)]
+
+
 def test_symlinked_directory_rejected(tmp_path, traces):
     link = tmp_path / "link"
     link.symlink_to(traces)
@@ -194,6 +219,22 @@ def test_sweep_continues_past_a_failing_entry_then_raises(traces, monkeypatch, c
         tap.sweep(now)
     assert [p.name for p in traces.iterdir()] == [failed[0].name]
     assert failed[0].name in caplog.text and "PermissionError" in caplog.text
+
+
+def test_sweep_skips_a_file_removed_after_listing(traces, monkeypatch, caplog):
+    now = time.time()
+    gone, expired = traces / "gone.jsonl", traces / "expired.jsonl"
+    for path in (gone, expired):
+        path.write_text("")
+        path.chmod(0o600)
+        os.utime(path, (now - 2 * DAY_S, now - 2 * DAY_S))
+    tap = FileTap.open(traces, DAY_S, UID)
+    vanished = vanish_on_lstat(monkeypatch, gone)
+    with caplog.at_level(logging.WARNING):
+        tap.sweep(now)
+    assert vanished == [os.fspath(gone)]
+    assert not expired.exists()
+    assert "not swept" not in caplog.text
 
 
 async def test_periodic_sweep_survives_a_failing_sweep(caplog):

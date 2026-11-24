@@ -1,6 +1,7 @@
 """Writes trace records as JSON lines, one file per session, into an owner-only directory."""
 
 import asyncio
+import contextlib
 import hashlib
 import logging
 import os
@@ -41,7 +42,9 @@ class FileTap:
             directory.chmod(_DIR_MODE)
         _check_owned(directory, stat.S_ISDIR, "directory", _DIR_MODE, uid)
         for trace_file in directory.glob("*.jsonl"):
-            _check_owned(trace_file, stat.S_ISREG, "file", _FILE_MODE, uid)
+            # A file removed since the listing has no mode or owner left to check.
+            with contextlib.suppress(FileNotFoundError):
+                _check_owned(trace_file, stat.S_ISREG, "file", _FILE_MODE, uid)
         return cls(directory, ttl_s)
 
     def record(self, record: TraceRecord) -> None:
@@ -55,13 +58,15 @@ class FileTap:
             raise OSError(f"short write: {written} of {len(line)} bytes")
 
     def sweep(self, now: float) -> None:
-        """Deletes expired trace files. A file the OS refuses is logged and skipped, so it can't keep
-        the rest; the sweep still fails once the loop is done."""
+        """Deletes expired trace files. A file the OS refuses is logged and skipped, so it can't
+        keep the rest; the sweep still fails once the loop is done."""
         failed = 0
         for trace_file in self._directory.glob("*.jsonl"):
             try:
                 if now - os.lstat(trace_file).st_mtime > self._ttl_s:
                     trace_file.unlink(missing_ok=True)
+            except FileNotFoundError:
+                continue  # removed since the listing: nothing left to sweep
             except OSError as e:
                 failed += 1
                 log.warning("trace file %s not swept: %s", trace_file, type(e).__name__)

@@ -8,7 +8,8 @@
 #            at least as often in each file afterwards as before (SC-002: byte-identical, never mangled)
 #
 # Excluded by design (spec Assumptions): tasks that need to see a literal value or operate on part of one,
-# such as "which customers share an email domain" or "the first 8 characters of the token".
+# such as "which customers share an email domain", "the first 8 characters of the token" or "sort the rows
+# by name" (placeholders carry no order).
 
 tasks:
   - id: count-customers
@@ -115,16 +116,6 @@ tasks:
         1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0143,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
         2,Tobias Quennell,t.quennell@harbourline-logistics.com,+44 20 7946 0958,DE89370400440532013000,5425 2334 3010 9903,412-67-9035,198.51.100.23
         3,Test User,margaret.ellsworth@brightwaterdental.co.uk,+44 20 7946 0958,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
-
-  - id: sort-by-name-descending
-    prompt: >-
-      Sort the data rows of customers.csv by name, descending. Keep the header first and every row
-      otherwise identical.
-    files:
-      customers.csv: |
-        id,name,email,phone,iban,card,ssn,ip
-        2,Tobias Quennell,t.quennell@harbourline-logistics.com,+44 20 7946 0958,DE89370400440532013000,5425 2334 3010 9903,412-67-9035,198.51.100.23
-        1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0143,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
 
   - id: add-status-column
     prompt: >-

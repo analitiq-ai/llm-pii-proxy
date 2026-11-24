@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     confidential_url: str = "http://127.0.0.1:8080"
     confidential_model: str = "gpt-oss-120b"
     confidential_timeout_s: float = Field(30, gt=0)
-    confidential_chunk_chars: int = Field(24000, gt=DEFAULT_OVERLAP)
+    confidential_chunk_chars: int = Field(6000, gt=DEFAULT_OVERLAP)
     confidential_concurrency: int = Field(4, ge=1)
 
     @field_validator("host")

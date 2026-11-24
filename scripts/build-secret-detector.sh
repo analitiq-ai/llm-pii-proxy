@@ -18,13 +18,7 @@ esac
 ARCHIVE="$TOOLS/go$GO_VERSION.$PLATFORM.tar.gz"
 mkdir -p "$TOOLS"
 
-verify() {
-  if command -v sha256sum >/dev/null; then
-    echo "$SHA256  $ARCHIVE" | sha256sum -c --status
-  else
-    echo "$SHA256  $ARCHIVE" | shasum -a 256 -c --status
-  fi
-}
+verify() { "$ROOT/scripts/sha256-matches.sh" "$ARCHIVE" "$SHA256"; }
 
 if [[ ! -f "$ARCHIVE" ]] || ! verify; then
   curl -fsSL -o "$ARCHIVE.part" "https://go.dev/dl/go$GO_VERSION.$PLATFORM.tar.gz"

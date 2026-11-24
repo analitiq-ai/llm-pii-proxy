@@ -49,7 +49,10 @@ placeholder and not the email.
    record is written.
 5. **Given** tracing is on, **When** the proxy starts, **Then** it logs a warning naming the enabled legs and the
    trace directory.
-6. **Given** a trace file older than the retention period, **When** the proxy starts or the retention sweep
+6. **Given** the trace directory already exists with a mode other than 0700 or another owner, or holds a trace
+   file that is not 0600, **When** the proxy starts, **Then** it exits before listening, with an error naming the
+   path and its actual mode or owner.
+7. **Given** a trace file older than the retention period, **When** the proxy starts or the retention sweep
    runs, **Then** the file is deleted.
 
 ---
@@ -92,6 +95,8 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
 - **Routes with no content** (`/v1/models`, `/api/hello`): not traced.
 - **Trace directory inside a git working tree**: startup fails, so traces can't be committed by accident.
 - **Trace directory does not exist**: created with owner-only permissions.
+- **Trace directory or a trace file exists with looser permissions or another owner**: startup fails, naming the
+  path and what is wrong. The proxy does not fix permissions itself.
 - **Concurrent requests in one session**: records from different requests may interleave in the file; each is
   one complete line, and the request id links them.
 
@@ -104,8 +109,10 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
 - **FR-002**: The operator MUST be able to choose any subset of the four legs.
 - **FR-003**: Selecting a raw leg MUST require a separate explicit opt-in. Without it, startup MUST fail before
   the proxy listens.
-- **FR-004**: Each record MUST hold: time, session id, request id (unique per proxied request), leg, route,
-  HTTP status, and the payload as it crossed that leg.
+- **FR-004**: A trace record MUST hold exactly: time; session id (absent only for a request rejected for having
+  none); request id, unique per proxied request; leg; route; HTTP status; complete or incomplete (incomplete
+  only for a stream that was cut, FR-007); and the payload as it crossed that leg. This is the record's one
+  definition.
 - **FR-005**: Records MUST NOT hold credentials (`authorization`, `x-api-key`, cookies) or any request or
   response header other than the status.
 - **FR-006**: The vault mapping MUST NOT be written as such. (With both a raw and a scrubbed leg enabled, the
@@ -115,7 +122,8 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
 - **FR-008**: Records MUST be written as one JSON object per line, one file per session, under the trace
   directory.
 - **FR-009**: Startup MUST fail if the trace directory is inside a git working tree.
-- **FR-010**: The trace directory MUST be owner-only (0700) and trace files owner read/write only (0600).
+- **FR-010**: The trace directory MUST be owner-only (0700) and trace files owner read/write only (0600). An
+  existing directory or file that is looser, or owned by another user, MUST fail startup.
 - **FR-011**: Trace files older than the retention period (default 24 hours) MUST be deleted at startup and
   periodically while running.
 - **FR-012**: Each startup with tracing on MUST log a warning naming the enabled legs and the directory, and
@@ -132,8 +140,7 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
 
 ### Key Entities
 
-- **Trace record**: one leg of one request — time, session id, request id, leg, route, status, payload,
-  complete/incomplete.
+- **Trace record**: one leg of one request, with the fields in FR-004.
 - **Trace output**: where records go. The local-file output writes one JSONL file per session; a disabled
   configuration uses an output that records nothing.
 

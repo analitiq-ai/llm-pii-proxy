@@ -78,12 +78,13 @@ def test_unreadable_archive_is_not_a_mismatch(tmp_path):
     assert matches(bin_dir(tmp_path, sha256sum, ("bash",)), tmp_path, GOOD) == 2
 
 
-def test_build_stops_when_the_digest_cant_be_computed(tmp_path):
+def run_build(tmp_path: Path, helper_exit: int) -> tuple[subprocess.CompletedProcess, list[Path]]:
+    """The build script against a stub helper, with a cached archive and no curl on PATH."""
     root = tmp_path / "repo"
     (root / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPTS / "build-secret-detector.sh", root / "scripts")
     helper = root / "scripts" / "sha256-matches.sh"
-    helper.write_text("#!/bin/sh\nexit 2\n")
+    helper.write_text(f"#!/bin/sh\nexit {helper_exit}\n")
     helper.chmod(0o755)
     (root / ".tools").mkdir()
     # Every supported platform's name, so the test needn't repeat the script's platform table.
@@ -93,18 +94,28 @@ def test_build_stops_when_the_digest_cant_be_computed(tmp_path):
     ]
     for path in archives:
         path.write_bytes(CONTENT)
-    # No curl on PATH: an attempted download fails as "curl: not found".
-    path = bin_dir(tmp_path, {}, ("bash", "uname", "dirname", "mkdir"))
-
     result = subprocess.run(
         ["bash", root / "scripts" / "build-secret-detector.sh"],
-        env={"PATH": str(path)},
+        env={"PATH": str(bin_dir(tmp_path, {}, ("bash", "uname", "dirname", "mkdir")))},
         capture_output=True,
         text=True,
     )
+    return result, archives
+
+
+def test_build_stops_when_the_digest_cant_be_computed(tmp_path):
+    result, archives = run_build(tmp_path, helper_exit=2)
 
     assert result.returncode != 0
     assert "checksum tool failed" in result.stderr
     assert "mismatch" not in result.stderr
     assert "curl" not in result.stderr
     assert all(p.read_bytes() == CONTENT for p in archives)
+
+
+def test_build_downloads_again_on_a_mismatch(tmp_path):
+    result, _ = run_build(tmp_path, helper_exit=1)
+
+    # With no curl on PATH, a download attempt puts "curl" in stderr.
+    assert "curl" in result.stderr
+    assert "checksum tool failed" not in result.stderr

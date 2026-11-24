@@ -37,7 +37,7 @@ async def proxy(make_proxy, regex_detector):
     async with httpx.AsyncClient(base_url=PRIVATEMODE) as client:
         yield make_proxy(
             [regex_detector],
-            confidential=ConfidentialDetector(client, "glm-flash-latest", 24_000, 4),
+            confidential=ConfidentialDetector(client, "gpt-oss-120b", 24_000, 4),
         )
 
 

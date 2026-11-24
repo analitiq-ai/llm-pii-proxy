@@ -317,6 +317,8 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     included a placeholder; the cut-out handles them.
   - **Decision (user, 2026-11-24)**: switch to `gpt-oss-120b` with the settings and instruction above. Cost:
     same per-token price, usage multiplier 2.0, and about twice the latency per chunk.
+  - Re-run on the shipped code: 28/32 (88%), 30 s for 32 examples. Temperature 0 is not deterministic
+    here; expect a few points of spread between runs.
 
 ## R9 — Stack
 

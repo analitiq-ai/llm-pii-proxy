@@ -60,7 +60,7 @@ async def client():
 
 
 def detector(client, chunk_chars=24_000, concurrency=4):
-    return ConfidentialDetector(client, "glm-flash-latest", chunk_chars, concurrency)
+    return ConfidentialDetector(client, "gpt-oss-120b", chunk_chars, concurrency)
 
 
 def found(text, spans):
@@ -72,7 +72,7 @@ async def test_request_body_matches_contract(privatemode, client):
     route = privatemode.post("/v1/chat/completions").mock(return_value=answer())
     await detector(client).detect(["Ask PII_PERSON_0001 about the rota."])
     body = json.loads(route.calls.last.request.content)
-    assert body["model"] == "glm-flash-latest"
+    assert body["model"] == "gpt-oss-120b"
     system, user = body["messages"]
     assert system["role"] == "system" and "PII_<CATEGORY>_<NNNN>" in system["content"]
     assert user == {"role": "user", "content": "Ask PII_PERSON_0001 about the rota."}
@@ -82,8 +82,8 @@ async def test_request_body_matches_contract(privatemode, client):
     }
     assert body["temperature"] == 0
     assert body["frequency_penalty"] == 0.1
-    assert body["reasoning_effort"] == "none"
-    assert body["max_completion_tokens"] == 2048
+    assert body["reasoning_effort"] == "low"
+    assert body["max_completion_tokens"] == 4096
 
 
 async def test_leaves_are_packed_into_chunks_from_the_shared_chunker(privatemode, client):

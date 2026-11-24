@@ -26,7 +26,7 @@ def test_defaults_match_quickstart_table():
     assert s.lists_path == Path("~/.config/claude-pii-proxy/lists.toml").expanduser()
     assert s.confidential_enabled is False
     assert s.confidential_url == "http://127.0.0.1:8080"
-    assert s.confidential_model == "glm-flash-latest"
+    assert s.confidential_model == "gpt-oss-120b"
     assert s.confidential_timeout_s == 30
     assert s.confidential_chunk_chars == 24000
     assert s.confidential_concurrency == 4

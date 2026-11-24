@@ -19,13 +19,13 @@ from claude_pii_proxy.vault import Category
 
 SYSTEM_PROMPT = (
     "You find personal data in the user's text: names, nicknames, online handles, and "
-    "descriptions that single out one real person (a unique role, a rare condition with a "
-    "place, a relationship to a named person). Report the shortest exact phrase that identifies"
-    " the person, copied verbatim from the text: not the whole sentence, line or comment, and "
-    "no surrounding words or punctuation. Tokens of the form PII_<CATEGORY>_<NNNN> are already "
-    "redacted: never include them in a finding. Ignore code identifiers, library names and "
-    "generic roles. Respond with JSON only, matching the schema; an empty findings list if "
-    "there is none."
+    "descriptions that single out one real person, such as a unique role, a rare condition "
+    "with a place, a distinctive trait, or a relationship to another person. Report each such"
+    " description whole, copied verbatim from the text, including the clauses that make it "
+    "identifying, but not the rest of the sentence. Tokens of the form PII_<CATEGORY>_<NNNN> "
+    "are already redacted; text around them may still identify someone. Ignore code "
+    "identifiers and library names. Respond with JSON only, matching the schema; an empty "
+    "findings list if there is none."
 )
 _SCHEMA = {
     "type": "object",
@@ -144,8 +144,8 @@ class ConfidentialDetector:
             },
             "temperature": 0,
             "frequency_penalty": 0.1,
-            "reasoning_effort": "none",
-            "max_completion_tokens": 2048,
+            "reasoning_effort": "low",
+            "max_completion_tokens": 4096,
         }
 
 

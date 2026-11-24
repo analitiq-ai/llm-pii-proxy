@@ -1,7 +1,10 @@
 """Startup wiring (T045): lists loaded before serving, secret detector started and stopped."""
 
+import json
+
 import httpx
 import pytest
+import respx
 
 from claude_pii_proxy.__main__ import build_app
 from claude_pii_proxy.detection.gitleaks import SecretDetectorStartupError
@@ -49,3 +52,37 @@ async def test_missing_secret_detector_fails_startup(settings, tmp_path, presidi
     with pytest.raises(SecretDetectorStartupError):
         async with app.router.lifespan_context(app):
             pass
+
+
+PRIVATEMODE = "http://privatemode.test"
+
+
+def privatemode_answer(*findings: str) -> httpx.Response:
+    content = json.dumps({"findings": [{"text": f} for f in findings]})
+    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+
+async def post_through(app, text):
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as proxy:
+            body = {"model": "m", "messages": [{"role": "user", "content": text}]}
+            return await proxy.post("/v1/messages", json=body, headers=SESSION)
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_confidential_pass_runs_only_when_enabled(
+    settings, presidio_engine, secret_detector_binary, upstream, enabled
+):
+    update = {"confidential_enabled": enabled, "confidential_url": PRIVATEMODE}
+    app = build_app(settings.model_copy(update=update), presidio_engine)
+    upstream.post("/v1/messages").mock(return_value=message_response("ok"))
+    with respx.mock(base_url=PRIVATEMODE, assert_all_called=False) as privatemode:
+        route = privatemode.post("/v1/chat/completions").mock(
+            return_value=privatemode_answer("the mayor's chauffeur")
+        )
+        r = await post_through(app, "Ask the mayor's chauffeur.")
+    assert r.status_code == 200
+    assert route.called is enabled
+    expected = "Ask PII_CONTEXT_0001." if enabled else "Ask the mayor's chauffeur."
+    assert sent(upstream)["messages"][0]["content"] == expected

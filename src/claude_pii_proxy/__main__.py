@@ -12,6 +12,7 @@ from starlette.applications import Starlette
 from claude_pii_proxy import operator_lists
 from claude_pii_proxy.app import create_app
 from claude_pii_proxy.config import Settings
+from claude_pii_proxy.detection.confidential import ConfidentialDetector
 from claude_pii_proxy.detection.gitleaks import SecretDetector
 from claude_pii_proxy.detection.presidio import PresidioDetector, build_engine
 from claude_pii_proxy.scrub import Pipeline
@@ -26,6 +27,17 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
     lists = operator_lists.load(settings.lists_path)
     secrets = SecretDetector(settings.secret_detector_path)
     upstream = httpx.AsyncClient(base_url=settings.upstream_url, timeout=UPSTREAM_TIMEOUT)
+    privatemode, confidential = None, None
+    if settings.confidential_enabled:
+        privatemode = httpx.AsyncClient(
+            base_url=settings.confidential_url, timeout=settings.confidential_timeout_s
+        )
+        confidential = ConfidentialDetector(
+            privatemode,
+            settings.confidential_model,
+            settings.confidential_chunk_chars,
+            settings.confidential_concurrency,
+        )
 
     @asynccontextmanager
     async def lifespan(_: Starlette) -> AsyncIterator[None]:
@@ -35,10 +47,14 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
         finally:
             await secrets.close()
             await upstream.aclose()
+            if privatemode is not None:
+                await privatemode.aclose()
 
     return create_app(
         pipeline=Pipeline(
-            [PresidioDetector(engine, settings.min_score), secrets], lists.never_scrub
+            [PresidioDetector(engine, settings.min_score), secrets],
+            lists.never_scrub,
+            confidential=confidential,
         ),
         sessions=SessionStore(lists.always_scrub, settings.session_idle_ttl_s),
         upstream=upstream,

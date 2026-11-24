@@ -18,7 +18,17 @@ esac
 ARCHIVE="$TOOLS/go$GO_VERSION.$PLATFORM.tar.gz"
 mkdir -p "$TOOLS"
 
-verify() { "$ROOT/scripts/sha256-matches.sh" "$ARCHIVE" "$SHA256"; }
+# Returns only match (0) or mismatch (1). A hashing-tool failure stops the build: re-downloading
+# can't fix it, and calling it a mismatch is how issue #6 was misread.
+verify() {
+  local status=0
+  "$ROOT/scripts/sha256-matches.sh" "$ARCHIVE" "$SHA256" || status=$?
+  if ((status > 1)); then
+    echo "checksum tool failed on $ARCHIVE" >&2
+    exit 1
+  fi
+  return "$status"
+}
 
 if [[ ! -f "$ARCHIVE" ]] || ! verify; then
   curl -fsSL -o "$ARCHIVE.part" "https://go.dev/dl/go$GO_VERSION.$PLATFORM.tar.gz"

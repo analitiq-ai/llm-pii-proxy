@@ -49,9 +49,9 @@ placeholder and not the email.
    record is written.
 5. **Given** tracing is on, **When** the proxy starts, **Then** it logs a warning naming the enabled legs and the
    trace directory.
-6. **Given** the trace directory already exists with a mode other than 0700 or another owner, or holds a trace
-   file that is not 0600, **When** the proxy starts, **Then** it exits before listening, with an error naming the
-   path and its actual mode or owner.
+6. **Given** the trace directory already exists with a mode other than 0700 (for example 0755 or 0500), or holds
+   a trace file with a mode other than 0600 or owned by another user, **When** the proxy starts, **Then** it exits
+   before listening, with an error naming the path and its actual mode or owner (FR-010).
 7. **Given** a trace file older than the retention period, **When** the proxy starts or the retention sweep
    runs, **Then** the file is deleted.
 
@@ -88,15 +88,15 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
   failure kind and the leg, never the content.
 - **Client disconnects mid-stream**: the `upstream_in` and `client_out` records hold what was assembled so far
   and are marked incomplete.
-- **Request without a session id**: the proxy already rejects it; a `client_in` record, if enabled, goes to a
-  file for requests with no session.
+- **Request without a session id**: the proxy already rejects it; its `client_in` record, if enabled, goes to the
+  no-session file (FR-008).
 - **Upstream error** (4xx/5xx from Anthropic): `upstream_in` records the error body; `client_out` records what
   the client received.
 - **Routes with no content** (`/v1/models`, `/api/hello`): not traced.
 - **Trace directory inside a git working tree**: startup fails, so traces can't be committed by accident.
-- **Trace directory does not exist**: created with owner-only permissions.
-- **Trace directory or a trace file exists with looser permissions or another owner**: startup fails, naming the
-  path and what is wrong. The proxy does not fix permissions itself.
+- **Trace directory does not exist**: created as FR-010 requires.
+- **Trace directory or a trace file exists with the wrong mode or owner**: startup fails (FR-010). The proxy
+  does not fix permissions itself.
 - **Concurrent requests in one session**: records from different requests may interleave in the file; each is
   one complete line, and the request id links them.
 
@@ -119,11 +119,12 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
   pairing can be inferred; that is the purpose of the raw opt-in.)
 - **FR-007**: A streamed response MUST be recorded as one assembled message per leg, written when the stream
   ends or is cut, marked incomplete in the latter case.
-- **FR-008**: Records MUST be written as one JSON object per line, one file per session, under the trace
-  directory.
+- **FR-008**: Records MUST be written as one JSON object per line, under the trace directory: one file per
+  session, plus one file for records with no session id.
 - **FR-009**: Startup MUST fail if the trace directory is inside a git working tree.
-- **FR-010**: The trace directory MUST be owner-only (0700) and trace files owner read/write only (0600). An
-  existing directory or file that is looser, or owned by another user, MUST fail startup.
+- **FR-010**: The trace directory MUST have mode exactly 0700 and each trace file mode exactly 0600, both owned
+  by the user running the proxy. A directory or file found otherwise MUST fail startup before the proxy listens,
+  with an error naming the path and its actual mode or owner.
 - **FR-011**: Trace files older than the retention period (default 24 hours) MUST be deleted at startup and
   periodically while running.
 - **FR-012**: Each startup with tracing on MUST log a warning naming the enabled legs and the directory, and
@@ -141,7 +142,7 @@ request id. Then select a raw leg without the opt-in and check the proxy refuses
 ### Key Entities
 
 - **Trace record**: one leg of one request, with the fields in FR-004.
-- **Trace output**: where records go. The local-file output writes one JSONL file per session; a disabled
+- **Trace output**: where records go. The local-file output writes the files in FR-008; a disabled
   configuration uses an output that records nothing.
 
 ## Success Criteria *(mandatory)*

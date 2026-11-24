@@ -4,11 +4,9 @@ Upstream answers instantly, so the measured time is the proxy's own: parse, scru
 Each run uses a new session and distinct content, so the leaf cache never helps.
 """
 
-import asyncio
 import json
 import statistics
 import time
-from pathlib import Path
 
 import httpx
 import pytest
@@ -16,6 +14,7 @@ import pytest
 from claude_pii_proxy.detection.gitleaks import SecretDetector
 from claude_pii_proxy.detection.presidio import PresidioDetector
 from tests.conftest import FIXTURES
+from tests.fixtures.filler import stdlib_code
 from tests.integration.conftest import SESSION
 
 pytestmark = pytest.mark.benchmark
@@ -34,11 +33,6 @@ CODE_PER_RECORD = (
 
 def corpus_records() -> list[str]:
     return [json.loads(line)["text"] for line in (FIXTURES / "corpus" / "local.jsonl").open()]
-
-
-def stdlib_code() -> str:
-    """Real source code, fixed by the pinned interpreter version."""
-    return "".join(p.read_text() for p in sorted(Path(asyncio.__file__).parent.glob("*.py")))
 
 
 def contents(size: int, count: int, code_per_record: int) -> list[str]:

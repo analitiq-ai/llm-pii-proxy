@@ -2,11 +2,14 @@
 
 Manual: calls the real Privatemode proxy at PII_PROXY_CONFIDENTIAL_URL.
 
-    uv run python scripts/e2e/confidential_recall.py
+    uv run python -m scripts.e2e.confidential_recall [--context-chars N]
 
-Exits 1 below the 70% target. Prints example numbers only, never text.
+With --context-chars, each example is sent as a session sends it: in one chunk after a leaf of N
+characters of other text (stdlib source). Exits 1 below the 70% target. Prints example numbers only,
+never text.
 """
 
+import argparse
 import asyncio
 import json
 import re
@@ -22,6 +25,7 @@ from claude_pii_proxy.detection.presidio import PresidioDetector, build_engine
 from claude_pii_proxy.report import ScrubReport
 from claude_pii_proxy.scrub import Pipeline
 from claude_pii_proxy.vault import Vault
+from tests.fixtures.filler import stdlib_code
 
 EXAMPLES = Path(__file__).parents[2] / "tests" / "fixtures" / "context-pii" / "examples.jsonl"
 TARGET = 0.70
@@ -40,8 +44,17 @@ def replaced(phrase: str, scrubbed: str) -> bool:
     return not any(re.search(rf"(?<![\w'’-]){re.escape(w)}(?![\w'’-])", scrubbed) for w in words)
 
 
-async def main() -> int:
+def session_leaves(text: str, filler: str, index: int, context_chars: int) -> list[str]:
+    """The example alone, or after a context leaf: a different slice of filler per example."""
+    if not context_chars:
+        return [text]
+    start = (index * context_chars) % (len(filler) - context_chars)
+    return [filler[start : start + context_chars], text]
+
+
+async def main(context_chars: int) -> int:
     settings = Settings()
+    filler = stdlib_code() if context_chars else ""
     examples = [json.loads(line) for line in EXAMPLES.read_text().splitlines() if line]
     secrets = SecretDetector(settings.secret_detector_path)
     await secrets.start()
@@ -60,7 +73,8 @@ async def main() -> int:
             )
             missed = []
             for i, example in enumerate(examples, 1):
-                (scrubbed,) = await pipeline.scrub([example["text"]], Vault(), ScrubReport())
+                leaves = session_leaves(example["text"], filler, i, context_chars)
+                *_, scrubbed = await pipeline.scrub(leaves, Vault(), ScrubReport())
                 if isinstance(scrubbed, Exception):
                     print(f"example {i}: failed closed ({type(scrubbed).__name__})")
                     missed.append(i)
@@ -77,4 +91,6 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--context-chars", type=int, default=0)
+    sys.exit(asyncio.run(main(parser.parse_args().context_chars)))

@@ -69,7 +69,7 @@ claude
 | V6 | Scrub report visible (FR-017) | `curl -si` a messages request via the proxy | `x-pii-proxy-scrubbed` header present; proxy log line shows counts only |
 | V7 | Confidential pass (US2) | Enable the pass; `uv run pytest tests/integration -k confidential` (mocked); then V2 with `fixtures/context-pii/` against the real Privatemode proxy | Context-dependent phrases replaced; the Privatemode request log shows only already-scrubbed text |
 | V8 | Confidential pass down (FR-014) | Stop the Privatemode proxy, send a request | `503`, nothing forwarded to Anthropic |
-| V9 | Detection benchmark (SC-003, SC-004, SC-005) | `uv run pytest -m benchmark`; with the pass enabled, `uv run python scripts/e2e/confidential_recall.py` | Recall and latency at or above the spec targets; reports printed |
+| V9 | Detection benchmark (SC-003, SC-004, SC-005) | `uv run pytest -m benchmark`; with the pass enabled, `uv run python -m scripts.e2e.confidential_recall` | Recall and latency at or above the spec targets; reports printed |
 | V10 | Task quality (SC-008, FR-019) | Run the fixed task set in `scripts/e2e/` with and without the proxy, including value-reuse tasks | Proxy success rate ≥ 95% of direct (3 runs per task per mode, pass checks fixed in advance); no planted value in captured traffic; username absent from `system` |
 
 ## Known limits

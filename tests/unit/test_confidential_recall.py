@@ -45,3 +45,15 @@ def test_phrase_is_not_replaced_while_a_content_word_survives(scrubbed):
 
 def test_word_match_is_whole_word():
     assert replaced("Tralee", "PII_LOCATION_0001 and Traleeside")
+
+
+def test_alone_by_default():
+    assert recall.session_leaves("note", "x" * 100, index=0, context_chars=0) == ["note"]
+
+
+def test_example_follows_a_context_leaf_of_the_given_size():
+    filler = "".join(chr(97 + i % 26) for i in range(1000))
+    first = recall.session_leaves("note", filler, index=0, context_chars=300)
+    second = recall.session_leaves("note", filler, index=1, context_chars=300)
+    assert [len(first[0]), first[1]] == [300, "note"]
+    assert first[0] in filler and second[0] in filler and first[0] != second[0]

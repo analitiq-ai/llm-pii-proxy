@@ -420,6 +420,8 @@ Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator l
 
   Recall depends on how much text shares the example's chunk, so chunk size is the lever; going below 6 000
   gains nothing measurable. Per-leaf requests would not help: in V7 the notes were already their own leaf.
+  **Decision (user, 2026-11-24)**: default chunk 6 000 characters. About 4× the requests on large new text
+  (session start, big file reads); typical turns stay one chunk.
 - **V10 failures**: proxy `sort-by-name-descending` 3/3. Claude sees only placeholders, said so, and left the
   file unchanged. This is the excluded class (spec Assumptions: tasks that need to see a literal value); the
   task should not have been in the set. Direct `delete-customer2` 2/3: missing trailing newline, model-side.

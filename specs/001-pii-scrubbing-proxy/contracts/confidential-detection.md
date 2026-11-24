@@ -8,7 +8,7 @@ proxy never handles the Privatemode key.
 
 - Only cache-miss text leaves (data-model.md, Leaf cache), **after** the outbound local stages ran. The text
   sent therefore already has every locally detected and every known value replaced (FR-012, SC-006).
-- Leaves are packed into chunks of at most `PII_PROXY_CONFIDENTIAL_CHUNK_CHARS` (default 24 000), using the
+- Leaves are packed into chunks of at most `PII_PROXY_CONFIDENTIAL_CHUNK_CHARS` (default 6 000; recall falls as more text shares a chunk, research R12), using the
   shared line-based chunker (plan.md, `detection/chunking.py`) that local NER also uses. Larger leaves are split
   on line boundaries. A single line longer than the limit is split hard at the limit, and the pieces overlap by
   200 characters so a value cut in two is still seen whole once.

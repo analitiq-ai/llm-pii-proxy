@@ -18,8 +18,8 @@ esac
 ARCHIVE="$TOOLS/go$GO_VERSION.$PLATFORM.tar.gz"
 mkdir -p "$TOOLS"
 
-# Returns only match (0) or mismatch (1). A hashing-tool failure stops the build: re-downloading
-# can't fix it, and calling it a mismatch is how issue #6 was misread.
+# Returns only match (0) or mismatch (1). A digest that can't be computed stops the build instead of
+# being reported as a mismatch, which is how #6 was misread.
 verify() {
   local status=0
   "$ROOT/scripts/sha256-matches.sh" "$ARCHIVE" "$SHA256" || status=$?

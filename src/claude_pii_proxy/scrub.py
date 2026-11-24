@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 from claude_pii_proxy.detection import DetectedSpan, Detector, Stage, resolve_overlaps, trim_span
+from claude_pii_proxy.detection.confidential import ConfidentialDetector
 from claude_pii_proxy.report import ScrubReport
 from claude_pii_proxy.vault import TOKEN_PATTERN, Category, Vault
 
@@ -18,11 +19,21 @@ LeafResult = str | Exception
 class Pipeline:
     detectors: Sequence[Detector]
     never_scrub: frozenset[str] = field(default_factory=frozenset)
+    confidential: ConfidentialDetector | None = None
 
     async def scrub(
         self, leaves: Sequence[str], vault: Vault, report: ScrubReport
     ) -> list[LeafResult]:
-        """Scrub cache-miss leaves. Detection is one batched call per detector, run concurrently."""
+        """Scrub cache-miss leaves: the local stage, then the confidential pass if enabled."""
+        results = await self._scrub_locally(leaves, vault, report)
+        if self.confidential is None:
+            return results
+        return await self._scrub_confidentially(self.confidential, results, vault, report)
+
+    async def _scrub_locally(
+        self, leaves: Sequence[str], vault: Vault, report: ScrubReport
+    ) -> list[LeafResult]:
+        """Detection is one batched call per detector, run concurrently."""
         try:
             per_detector = await asyncio.gather(*(d.detect(leaves) for d in self.detectors))
         except Exception as e:  # every leaf of the batch fails closed with this error
@@ -38,6 +49,60 @@ class Pipeline:
                 results.append(e)
         return results
 
+    async def _scrub_confidentially(
+        self,
+        confidential: ConfidentialDetector,
+        results: list[LeafResult],
+        vault: Vault,
+        report: ScrubReport,
+    ) -> list[LeafResult]:
+        """FR-012: only locally scrubbed text is sent, so no known value reaches the pass."""
+        sent = [i for i, r in enumerate(results) if isinstance(r, str)]
+        if not sent:
+            return results
+        try:
+            detection = await confidential.detect([results[i] for i in sent])
+        except Exception as e:  # every leaf sent fails closed with this error
+            return [e if i in sent else r for i, r in enumerate(results)]
+        report.confidential_unlocated += detection.unlocated
+        out = list(results)
+        for i, found in zip(sent, detection.leaves, strict=True):
+            scrubbed = results[i]
+            assert isinstance(scrubbed, str)
+            if isinstance(found, Exception):
+                out[i] = found
+                continue
+            try:
+                out[i] = self._apply_findings(scrubbed, found, vault, report)
+            except Exception as e:  # this leaf fails closed; the others stand
+                out[i] = e
+        return out
+
+    def _apply_findings(
+        self, scrubbed: str, found: Sequence[DetectedSpan], vault: Vault, report: ScrubReport
+    ) -> str:
+        # Placeholders already in the text are cut out of findings, as local spans are cut around
+        # fixed ones. Known values are matched again: a concurrent request may have added one while
+        # this request waited on the pass.
+        placeholders = _token_spans(scrubbed)
+        candidates = [*found, *_known_spans(scrubbed, vault)]
+        return _replace(
+            scrubbed, self._new_spans(scrubbed, candidates, placeholders), vault, report
+        )
+
+    def _new_spans(
+        self, text: str, spans: Sequence[DetectedSpan], fixed: Sequence[DetectedSpan]
+    ) -> list[DetectedSpan]:
+        """Detected spans as they will be replaced: trimmed, never-scrub values dropped, the parts
+        already covered by fixed spans cut out, overlaps resolved."""
+        return resolve_overlaps(
+            piece
+            for span in spans
+            for trimmed in trim_span(text, span)
+            if text[trimmed.start : trimmed.end] not in self.never_scrub
+            for piece in _subtract(text, trimmed, fixed)
+        )
+
     def _scrub_leaf(
         self,
         text: str,
@@ -45,29 +110,27 @@ class Pipeline:
         vault: Vault,
         report: ScrubReport,
     ) -> str:
-        fixed = resolve_overlaps(_literal_spans(text) + _known_spans(text, vault))
-        new = [
-            piece
-            for spans in detected
-            for span in spans
-            for trimmed in trim_span(text, span)
-            if text[trimmed.start : trimmed.end] not in self.never_scrub
-            for piece in _subtract(text, trimmed, fixed)
-        ]
-        replacements = sorted(fixed + resolve_overlaps(new), key=lambda r: r.start)
-        # Assign every token before emitting or counting anything: a leaf fails whole or not at all.
-        tokens = [vault.assign(text[r.start : r.end], r.category) for r in replacements]
-        out, pos = [], 0
-        for r, token in zip(replacements, tokens, strict=True):
-            out.append(text[pos : r.start])
-            out.append(token)
-            pos = r.end
-            report.add(_category_of(token), r.stage)
-        out.append(text[pos:])
-        return "".join(out)
+        # Token-shaped text in the raw leaf is escaped as a LITERAL placeholder.
+        fixed = resolve_overlaps(_token_spans(text) + _known_spans(text, vault))
+        new = self._new_spans(text, [s for spans in detected for s in spans], fixed)
+        return _replace(text, fixed + new, vault, report)
 
 
-def _literal_spans(text: str) -> list[DetectedSpan]:
+def _replace(text: str, spans: Sequence[DetectedSpan], vault: Vault, report: ScrubReport) -> str:
+    replacements = sorted(spans, key=lambda r: r.start)
+    # Assign every token before emitting or counting anything: a leaf fails whole or not at all.
+    tokens = [vault.assign(text[r.start : r.end], r.category) for r in replacements]
+    out, pos = [], 0
+    for r, token in zip(replacements, tokens, strict=True):
+        out.append(text[pos : r.start])
+        out.append(token)
+        pos = r.end
+        report.add(_category_of(token), r.stage)
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _token_spans(text: str) -> list[DetectedSpan]:
     return [
         DetectedSpan(m.start(), m.end(), Category.LITERAL, Stage.LOCAL)
         for m in TOKEN_PATTERN.finditer(text)

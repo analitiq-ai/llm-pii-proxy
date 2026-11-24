@@ -9,3 +9,4 @@ dist/
 .specify/extensions/.cache/
 .tools/
 !tests/fixtures/pii-project/.env
+.claude/worktrees/

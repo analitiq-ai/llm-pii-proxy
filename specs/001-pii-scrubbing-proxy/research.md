@@ -319,6 +319,18 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     same per-token price, usage multiplier 2.0, and about twice the latency per chunk.
   - Re-run on the shipped code: 28/32 (88%), 30 s for 32 examples. Temperature 0 is not deterministic
     here; expect a few points of spread between runs.
+  - **Fair comparison (2026-11-24)**: the GLM runs above had reasoning off, gpt-oss had it on. Same request
+    for both (shipped instruction, `reasoning_effort: "low"`, 4096 tokens):
+
+    | | `glm-5.3` | `gpt-oss-120b` |
+    |---|---|---|
+    | SC-005 recall, 2 runs | 31/32, 30/32 | 30/32, 30/32 |
+    | S3 workload: conformant / planted found / findings in code | 20/20 / 59/60 / 0 | 20/20 / 59/60 / 0 |
+    | S3 latency per chunk, median / max | 1.9 s / 3.3 s | 2.1 s / 5.0 s |
+    | Price per 1M tokens in / out, after usage multiplier | €1.55 / €5.74 | €0.40 / €1.30 |
+
+    Quality ties; GLM's earlier failure came from reasoning being off. **Decision (user, 2026-11-24)**: keep
+    `gpt-oss-120b` at about a quarter of the price. `glm-5.3` is a config-only switch.
 
 ## R9 — Stack
 

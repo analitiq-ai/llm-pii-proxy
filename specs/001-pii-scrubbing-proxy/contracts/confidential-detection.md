@@ -39,8 +39,8 @@ proxy never handles the Privatemode key.
 
 `frequency_penalty` and the explicit JSON instruction follow Privatemode's structured-output guidance, which
 warns some models emit endless whitespace without them. `gpt-oss-120b` always reasons; `"low"` is its smallest
-effort, and 4096 tokens leaves room for reasoning plus findings. Model and instruction were chosen on SC-005
-recall: the GLM models with reasoning off replaced at most 56% of the context-PII examples, this pairing 94%
+effort, and 4096 tokens leaves room for reasoning plus findings. With reasoning low, `glm-5.3` matches it on SC-005
+recall and conformance at about 4× the price; with reasoning off, the GLM models replaced at most 56%
 (research R8).
 
 ## Response handling

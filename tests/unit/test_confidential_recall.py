@@ -57,3 +57,48 @@ def test_example_follows_a_context_leaf_of_the_given_size():
     second = recall.session_leaves("note", filler, index=1, context_chars=300)
     assert [len(first[0]), first[1]] == [300, "note"]
     assert first[0] in filler and second[0] in filler and first[0] != second[0]
+
+
+async def test_unavailable_answer_is_retried_after_a_wait():
+    from claude_pii_proxy.errors import ConfidentialUnavailable
+
+    outcomes = [ConfidentialUnavailable("HTTP 429"), ConfidentialUnavailable("HTTP 429"), "ok"]
+    waits = []
+
+    async def scrub():
+        return outcomes.pop(0)
+
+    async def sleep(s):
+        waits.append(s)
+
+    assert await recall.with_retries(scrub, attempts=3, wait_s=20, sleep=sleep) == "ok"
+    assert waits == [20, 20]
+
+
+async def test_gives_up_with_the_last_failure():
+    from claude_pii_proxy.errors import ConfidentialUnavailable
+
+    async def scrub():
+        return ConfidentialUnavailable("HTTP 429")
+
+    async def sleep(s):
+        pass
+
+    result = await recall.with_retries(scrub, attempts=2, wait_s=1, sleep=sleep)
+    assert isinstance(result, ConfidentialUnavailable)
+
+
+async def test_other_failures_are_not_retried():
+    calls = []
+
+    async def scrub():
+        calls.append(1)
+        return RuntimeError("bug")
+
+    async def sleep(s):
+        raise AssertionError("must not wait")
+
+    assert isinstance(
+        await recall.with_retries(scrub, attempts=3, wait_s=1, sleep=sleep), RuntimeError
+    )
+    assert len(calls) == 1

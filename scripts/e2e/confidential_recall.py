@@ -5,8 +5,11 @@ Manual: calls the real Privatemode proxy at PII_PROXY_CONFIDENTIAL_URL.
     uv run python -m scripts.e2e.confidential_recall [--context-chars N]
 
 With --context-chars, each example is sent as a session sends it: in one chunk after a leaf of N
-characters of other text (stdlib source). Exits 1 below the 70% target. Prints example numbers only,
-never text.
+characters of other text (stdlib source). A rate-limited example is retried after a wait; one that
+still gets no answer is reported as failed and left out of the rate.
+
+Exits 0 at or above the 70% target, 1 below it, 2 if any example failed (measurement incomplete).
+Prints example numbers only, never text.
 """
 
 import argparse
@@ -14,6 +17,7 @@ import asyncio
 import json
 import re
 import sys
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 import httpx
@@ -22,13 +26,17 @@ from claude_pii_proxy.config import Settings
 from claude_pii_proxy.detection.confidential import ConfidentialDetector
 from claude_pii_proxy.detection.gitleaks import SecretDetector
 from claude_pii_proxy.detection.presidio import PresidioDetector, build_engine
+from claude_pii_proxy.errors import ConfidentialUnavailable
 from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.scrub import Pipeline
+from claude_pii_proxy.scrub import LeafResult, Pipeline
 from claude_pii_proxy.vault import Vault
 from tests.fixtures.filler import stdlib_code
 
 EXAMPLES = Path(__file__).parents[2] / "tests" / "fixtures" / "context-pii" / "examples.jsonl"
 TARGET = 0.70
+# Privatemode limits prompt tokens per minute; a 20k-character chunk is about 5k tokens.
+ATTEMPTS = 4
+RETRY_WAIT_S = 30
 # Words that identify no one. A phrase whose other words are all gone is replaced even if the model
 # left "the" or "who also" outside its finding.
 _STOPWORDS = frozenset(
@@ -52,6 +60,22 @@ def session_leaves(text: str, filler: str, index: int, context_chars: int) -> li
     return [filler[start : start + context_chars], text]
 
 
+async def with_retries(
+    scrub: Callable[[], Awaitable[LeafResult]],
+    attempts: int,
+    wait_s: float,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> LeafResult:
+    """Retry only an unavailable pass (rate limit, timeout); other failures are final."""
+    result = await scrub()
+    for _ in range(attempts - 1):
+        if not isinstance(result, ConfidentialUnavailable):
+            break
+        await sleep(wait_s)
+        result = await scrub()
+    return result
+
+
 async def main(context_chars: int) -> int:
     settings = Settings()
     filler = stdlib_code() if context_chars else ""
@@ -71,22 +95,30 @@ async def main(context_chars: int) -> int:
                     settings.confidential_concurrency,
                 ),
             )
-            missed = []
+            missed, failed = [], []
             for i, example in enumerate(examples, 1):
                 leaves = session_leaves(example["text"], filler, i, context_chars)
-                *_, scrubbed = await pipeline.scrub(leaves, Vault(), ScrubReport())
+
+                async def scrub_example(leaves: list[str] = leaves) -> LeafResult:
+                    return (await pipeline.scrub(leaves, Vault(), ScrubReport()))[-1]
+
+                scrubbed = await with_retries(scrub_example, ATTEMPTS, RETRY_WAIT_S)
                 if isinstance(scrubbed, Exception):
-                    print(f"example {i}: failed closed ({type(scrubbed).__name__})")
-                    missed.append(i)
+                    print(f"example {i}: failed ({scrubbed})")
+                    failed.append(i)
                 elif not replaced(example["phrase"], scrubbed):
                     missed.append(i)
     finally:
         await secrets.close()
-    rate = 1 - len(missed) / len(examples)
+    answered = len(examples) - len(failed)
+    rate = (answered - len(missed)) / answered if answered else 0.0
     print(
-        f"replaced {len(examples) - len(missed)}/{len(examples)} = {rate:.0%} (target {TARGET:.0%})"
+        f"replaced {answered - len(missed)}/{answered} answered = {rate:.0%} (target {TARGET:.0%})"
     )
     print(f"missed examples: {missed}")
+    if failed:
+        print(f"failed examples: {failed} (measurement incomplete)")
+        return 2
     return 0 if rate >= TARGET else 1
 
 

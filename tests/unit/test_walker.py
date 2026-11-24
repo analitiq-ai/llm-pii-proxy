@@ -155,3 +155,17 @@ def test_input_not_mutated():
 def test_apply_rejects_wrong_leaf_count(scrubbed):
     with pytest.raises(ValueError, match="leaf count"):
         apply_leaves({"system": "s", "messages": [{"content": "c"}]}, scrubbed)
+
+
+@pytest.mark.parametrize("order", [("system", "messages"), ("messages", "system")])
+def test_each_scrubbed_leaf_returns_to_its_own_place_whatever_the_key_order(order):
+    parts = {
+        "system": [{"type": "text", "text": "sys"}],
+        "messages": [{"role": "user", "content": [{"type": "text", "text": "msg"}]}],
+    }
+    body = {"model": "m", **{k: parts[k] for k in order}}
+    texts = collect_leaves(body).texts
+    out = apply_leaves(body, [f"<{t}>" for t in texts])
+    assert out["system"] == [{"type": "text", "text": "<sys>"}]
+    assert out["messages"] == [{"role": "<user>", "content": [{"type": "text", "text": "<msg>"}]}]
+    assert list(out) == list(body)

@@ -42,12 +42,12 @@ def apply_leaves(body: dict[str, Any], scrubbed: Sequence[str]) -> dict[str, Any
     if len(scrubbed) != expected:
         raise ValueError(f"leaf count mismatch: body has {expected}, got {len(scrubbed)}")
     replacements: Iterator[str] = iter(scrubbed)
-    return {
-        key: _walk(value, lambda _: next(replacements), _Counter())
-        if key in SCRUBBED_FIELDS
-        else value
-        for key, value in body.items()
-    }
+    out = dict(body)
+    # Same field order as collect_leaves, not the body's key order: clients send either.
+    for field in SCRUBBED_FIELDS:
+        if field in body:
+            out[field] = _walk(body[field], lambda _: next(replacements), _Counter())
+    return out
 
 
 class _Counter:

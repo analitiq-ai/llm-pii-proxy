@@ -12,6 +12,12 @@ from typing import Any
 from claude_pii_proxy.vault import Category
 
 _NOT_SCRUBBABLE_BY_OPERATOR = {Category.LITERAL, Category.CONTEXT}
+# Claude Code's own vocabulary, which NER tags as PERSON. Anthropic rejects subscription traffic
+# whose identity line was altered (research R3).
+BUILT_IN_NEVER_SCRUB = frozenset(
+    {"Claude", "claude", "Claude Code", "Claude Agent SDK", "Anthropic"}
+    | {"Claude Opus", "Claude Sonnet", "Claude Haiku", "Claude Fable"}
+)
 
 
 class OperatorListsError(ValueError):
@@ -21,7 +27,7 @@ class OperatorListsError(ValueError):
 @dataclass(frozen=True)
 class OperatorLists:
     always_scrub: Mapping[Category, tuple[str, ...]] = field(default_factory=dict)
-    never_scrub: frozenset[str] = frozenset()
+    never_scrub: frozenset[str] = BUILT_IN_NEVER_SCRUB
 
 
 def load(path: Path) -> OperatorLists:
@@ -51,7 +57,7 @@ def load(path: Path) -> OperatorLists:
             if value in never:
                 raise OperatorListsError(f"{where}[{i}] is also on never_scrub")
         always[Category[name]] = strings
-    return OperatorLists(always_scrub=always, never_scrub=frozenset(never))
+    return OperatorLists(always_scrub=always, never_scrub=BUILT_IN_NEVER_SCRUB | frozenset(never))
 
 
 def _strings(values: Any, where: str) -> tuple[str, ...]:

@@ -86,3 +86,24 @@ async def test_confidential_pass_runs_only_when_enabled(
     assert route.called is enabled
     expected = "Ask PII_CONTEXT_0001." if enabled else "Ask the mayor's chauffeur."
     assert sent(upstream)["messages"][0]["content"] == expected
+
+
+async def test_claude_code_identity_line_reaches_anthropic_unchanged(
+    settings, presidio_engine, secret_detector_binary, upstream
+):
+    # Anthropic rejects subscription traffic whose identity line was altered (research R3).
+    identity = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
+    app = build_app(settings, presidio_engine)
+    upstream.post("/v1/messages").mock(return_value=message_response("ok"))
+    body = {
+        "model": "m",
+        "system": [{"type": "text", "text": identity}],
+        "messages": [{"role": "user", "content": "Hi, I'm Margaret Ellsworth."}],
+    }
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as proxy:
+            r = await proxy.post("/v1/messages", json=body, headers=SESSION)
+    assert r.status_code == 200
+    assert sent(upstream)["system"][0]["text"] == identity
+    assert sent(upstream)["messages"][0]["content"] == "Hi, I'm PII_PERSON_0001."

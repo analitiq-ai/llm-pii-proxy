@@ -154,7 +154,7 @@ V8).
 - [X] T054 [US2] Implement `src/claude_pii_proxy/detection/confidential.py` (a `Detector` with `stage="confidential"`)
 - [X] T055 [US2] Wire the pass into `src/claude_pii_proxy/scrub.py` behind `PII_PROXY_CONFIDENTIAL_ENABLED`: it runs on each cache-miss leaf's text after the local stages (FR-012), its spans become placeholders through the same vault path (FR-013), and a leaf is cached only once every chunk covering it succeeded
 - [X] T056 [P] [US2] Write `tests/integration/test_confidential_pass.py` (respx for Anthropic and Privatemode): US2 scenarios 1–4; the Privatemode request never contains any vault value (SC-006); a second turn sends only new leaves to Privatemode; Privatemode down → 503 and zero Anthropic calls (FR-014)
-- [ ] T057 [P] [US2] Write `scripts/e2e/confidential_recall.py` (real Privatemode, run by hand): SC-005 ≥ 70% of `tests/fixtures/context-pii/` examples replaced
+- [X] T057 [P] [US2] Write `scripts/e2e/confidential_recall.py` (real Privatemode, run by hand): SC-005 ≥ 70% of `tests/fixtures/context-pii/` examples replaced
 - [ ] T058 [US2] Run quickstart V7 and V8 and `scripts/e2e/confidential_recall.py` by hand; record results in research.md R12
 
 **Checkpoint**: US1 and US2 both work; US2 switches off cleanly with `PII_PROXY_CONFIDENTIAL_ENABLED=false`

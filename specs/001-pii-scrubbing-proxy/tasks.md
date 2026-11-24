@@ -134,7 +134,7 @@ the proxy (spec US1; quickstart V1, V2, V5, V10).
 - [X] T047 [US1] Write `tests/benchmark/test_local_recall.py` (marker `benchmark`): SC-003 recall ≥ 95% for emails, phones, cards, IBANs, IPs and national IDs, ≥ 85% for names, ≥ 70% for postal addresses, ≥ 95% for secrets, on `local.jsonl`; prints a per-category report
 - [X] T048 [P] [US1] Write `tests/benchmark/test_latency.py` (marker `benchmark`): SC-004 added time to first streamed byte < 0.5 s for a typical request: 20 KB of new content, Python stdlib source with a `local.jsonl` record (PII and secrets) after every 1600 characters, so both local detectors do real work (local detection only, upstream mocked to respond instantly); also records 20 KB of corpus records alone as the worst case, and the 100 KB typical case against SC-004's "about 2.3 seconds per 100 KB"; prints median and max of 10 runs
 - [X] T049 [P] [US1] Create `scripts/e2e/` from the R0 harness: `recorder.py` (mitmproxy reverse-mode addon writing request/response pairs to `$CAPTURE_DIR`), `analyze.py` (planted values found in captured requests by JSON region `system`/`messages`/other, thinking block counts, non-200 responses), `tasks.yaml` (≥ 20 tasks over `tests/fixtures/pii-project/`, each with a pass check fixed in advance, including value-reuse tasks and excluding tasks that need to see a literal value or operate on part of one; the SC-002 check compares every planted value the task did not intend to change), and `run_tasks.sh` (runs each task 3 times direct and 3 times through the proxy, prints both success rates and their ratio)
-- [ ] T050 [US1] Run quickstart V2, V5, V6 and V10 by hand and record the results in a new research.md section R12: SC-001 (0 planted values), SC-002 (untouched planted values byte-identical, pass checks met), SC-008 (proxy success rate ≥ 95% of direct), no signature errors
+- [X] T050 [US1] Run quickstart V2, V5, V6 and V10 by hand and record the results in a new research.md section R12: SC-001 (0 planted values), SC-002 (untouched planted values byte-identical, pass checks met), SC-008 (proxy success rate ≥ 95% of direct), no signature errors
 
 **Checkpoint**: US1 is the MVP: usable on its own with no dependency beyond Anthropic
 
@@ -155,7 +155,7 @@ V8).
 - [X] T055 [US2] Wire the pass into `src/claude_pii_proxy/scrub.py` behind `PII_PROXY_CONFIDENTIAL_ENABLED`: it runs on each cache-miss leaf's text after the local stages (FR-012), its spans become placeholders through the same vault path (FR-013), and a leaf is cached only once every chunk covering it succeeded
 - [X] T056 [P] [US2] Write `tests/integration/test_confidential_pass.py` (respx for Anthropic and Privatemode): US2 scenarios 1–4; the Privatemode request never contains any vault value (SC-006); a second turn sends only new leaves to Privatemode; Privatemode down → 503 and zero Anthropic calls (FR-014)
 - [X] T057 [P] [US2] Write `scripts/e2e/confidential_recall.py` (real Privatemode, run by hand): SC-005 ≥ 70% of `tests/fixtures/context-pii/` examples replaced
-- [ ] T058 [US2] Run quickstart V7 and V8 and `scripts/e2e/confidential_recall.py` by hand; record results in research.md R12
+- [X] T058 [US2] Run quickstart V7 and V8 and `scripts/e2e/confidential_recall.py` by hand; record results in research.md R12
 
 **Checkpoint**: US1 and US2 both work; US2 switches off cleanly with `PII_PROXY_CONFIDENTIAL_ENABLED=false`
 

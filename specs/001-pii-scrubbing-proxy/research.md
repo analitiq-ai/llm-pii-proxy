@@ -369,3 +369,30 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   visible (`PII_EMAIL_0001@example.com`): rejected by the user (2026-11-23). A domain can identify a person at a
   small company. Tasks needing part of a value are out of scope (spec Assumptions). A tool run on the real file
   would return the part unscrubbed, so the notice no longer suggests it.
+
+## R12 — Validation against the real API (T050, T058, T062)
+
+Run 2026-11-24, Claude Code 2.1.331 with a subscription login, Privatemode proxy v1.64.0 on `gpt-oss-120b`.
+Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator list held the OS username
+(FR-018).
+
+| # | Result |
+|---|---|
+| V1, V3, V4 | Pass (pytest) |
+| V2 | Pass. Summary showed the real values; `git diff` held exactly the requested changes; no planted value lost |
+| V5 | Pass. Over V10's 308 proxied requests, 93 replayed thinking blocks (up to 6); no signature errors |
+| V6 | Pass. `x-pii-proxy-scrubbed: CONTEXT=1,EMAIL=1`; log line holds counts only |
+| V7 | Partial. Mocked tests pass. Real session over 8 `context-pii` notes: 5/8 phrases replaced before Anthropic, 8/8 restored in the answer. Missed: "the regular we call the Professor", "the head of compliance at our … office", "the user whose dog appeared in last week's newsletter" |
+| V8 | Pass. Pass unreachable: `503`, `retry-after: 5`, cause named, no Anthropic request |
+| V9 | Pass. SC-003 recall at target (PERSON 87.9%, ADDRESS 94.6%, rest 100%); SC-004 typical 20 KB 299 ms; SC-005 recall script 28/32 (88%) |
+| V10 | Pass. Direct 67/69 (97.1%), proxy 66/69 (95.7%): ratio 98.5% (SC-008 ≥ 95%). 0 of 21 planted values and no username in 308 requests (SC-001); 0 non-200 |
+
+- **Found and fixed during the run**: scrubbed leaves were applied in the body's key order rather than collect
+  order, so with `messages` before `system` (as Claude Code sends) every leaf landed one field over; and NER
+  scrubbing "Claude"/"Anthropic" in the identity line got subscription traffic a 429 (R3).
+- **V7 vs the recall script**: the script sends each example alone; in a session the notes share a chunk with
+  Claude Code's system prompt, and recall drops (5/8 here, small sample). SC-005 as measured by the script is
+  likely optimistic for real sessions.
+- **V10 failures**: proxy `sort-by-name-descending` 3/3. Claude sees only placeholders, said so, and left the
+  file unchanged. This is the excluded class (spec Assumptions: tasks that need to see a literal value); the
+  task should not have been in the set. Direct `delete-customer2` 2/3: missing trailing newline, model-side.

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Local proxy for Claude Code that pseudonymizes PII outbound and restores it inbound. See README.md
-for the design constraints. They are requirements, not suggestions.
+Local proxy for Claude Code that pseudonymizes PII outbound and restores it inbound. README.md
+§ Features and § Limits state the design constraints. They are requirements, not suggestions.
 
 - Python 3.13, managed with `uv`. Run everything through `uv run`.
 - Layout: `src/llm_pii_proxy/`, tests in `tests/`.

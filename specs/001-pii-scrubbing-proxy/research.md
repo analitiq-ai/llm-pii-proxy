@@ -407,6 +407,19 @@ Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator l
   script counted those as misses (fixed: retried, and reported apart). Code was the filler; Claude Code's
   system prompt is prose, and V7's 5/8 used it, so prose context may read lower. Sending each leaf to
   Privatemode alone is not needed on these numbers.
+- **Prose context (2026-11-24)**: `--filler prose` (stdlib docstrings, closer to Claude Code's system prompt).
+  Paced, 0 failures. Prose dilutes far more than code, and at the default 24 000-character chunk misses
+  SC-005, matching V7's 5/8:
+
+  | Prose context | Chunk chars | Run 1 | Run 2 |
+  |---|---|---|---|
+  | 6 000 | 24 000 | 26/32 (81%) | 25/32 (78%) |
+  | 20 000 | 24 000 | 17/32 (53%) | 16/32 (50%) |
+  | 20 000 | 6 000 | 25/32 (78%) | 26/32 (81%) |
+  | 20 000 | 3 000 | 24/32 (75%) | 27/32 (84%) |
+
+  Recall depends on how much text shares the example's chunk, so chunk size is the lever; going below 6 000
+  gains nothing measurable. Per-leaf requests would not help: in V7 the notes were already their own leaf.
 - **V10 failures**: proxy `sort-by-name-descending` 3/3. Claude sees only placeholders, said so, and left the
   file unchanged. This is the excluded class (spec Assumptions: tasks that need to see a literal value); the
   task should not have been in the set. Direct `delete-customer2` 2/3: missing trailing newline, model-side.

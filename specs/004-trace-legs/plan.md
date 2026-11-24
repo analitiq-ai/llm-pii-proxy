@@ -8,10 +8,11 @@
 
 Record each proxied request's payload on up to four legs, as JSON lines, to local files. Recording goes
 through one `Tap` interface (FR-015): `NullTap` when tracing is off, `FileTap` for the JSONL output. A later
-output (for example a self-hosted Langfuse) is another `Tap`. The proxy's handlers build one `RequestTrace` per
-request, which stamps the shared fields of FR-004 and hands each enabled leg's record to the tap. Streamed
-responses are assembled into one message per leg by a single assembler that watches the upstream events and
-the restored events alike (research R2). Startup checks the trace directory (FR-009, FR-010) and sweeps old
+output (for example a self-hosted Langfuse) is another `Tap`. Handlers capture leg bodies into one
+`RequestTrace` per request; one route wrapper finishes it on every exit, which writes each enabled leg with the
+shared fields of FR-004 (research R8). `RequestTrace` is the single guard that keeps trace failures out of the
+request (R3a). Streamed responses are assembled into one message per leg by a single assembler that watches the
+upstream events and the restored events alike (research R2). Startup checks the trace directory (FR-009, FR-010) and sweeps old
 files (FR-011) before the port opens.
 
 ## Technical Context
@@ -47,7 +48,7 @@ and README § Features / § Limits:
 | Tests never call the real API (respx) | Pass: all tests mock upstream. |
 | Loopback only (README) | Pass: no new listener. The later Langfuse output must be loopback-only too (research R9). |
 | Mapping stays local (README) | Pass: trace files are local, owner-only, outside git trees (FR-009, FR-010). |
-| Coding principles: one implementation per operation | Pass: one assembler for both streamed legs (R2); one record builder (`RequestTrace`) for all legs. |
+| Coding principles: one implementation per operation | Pass: one assembler for both streamed legs (R2); one record builder and one exit (`RequestTrace`, R8) for all legs. |
 
 Re-checked after Phase 1 design: no change.
 
@@ -59,7 +60,7 @@ Re-checked after Phase 1 design: no change.
 specs/004-trace-legs/
 ├── spec.md
 ├── plan.md              # this file
-├── research.md          # R1–R10
+├── research.md          # R1–R10, R3a
 ├── data-model.md        # Leg, TraceRecord, RequestTrace, Tap, MessageAssembler, settings
 ├── quickstart.md        # validation scenarios
 ├── contracts/
@@ -80,7 +81,7 @@ src/llm_pii_proxy/
 ├── config.py            # + trace_legs, trace_dir, trace_ttl_h (US1); trace_raw (US2)
 ├── __main__.py          # build_app: directory checks, sweep, startup warning, sweep task
 ├── app.py               # RequestTrace per request; records at each leg
-└── sse.py               # restore_stream yields events; encoding moves to the caller (R2)
+└── sse.py               # (US2) restore_stream yields events; encoding moves to the caller (R2)
 
 tests/
 ├── unit/test_trace_record.py, test_file_tap.py, test_assemble.py, test_config.py (+ trace settings)
@@ -94,11 +95,11 @@ behind `Tap` and request handling does not change (FR-015).
 ## Delivery
 
 - **US1 (#8)** — scrubbed legs: settings (`upstream_out`, `upstream_in` only), `Tap`/`NullTap`/`FileTap`,
-  directory checks, retention, startup warning, assembler and the `sse.py` change, wiring in `app.py`, README
-  Features sentence and configuration docs.
+  directory checks, retention, startup warning, assembler, wiring in `app.py`, README Features sentence and
+  configuration docs.
 - **US2 (#9)**, blocked by #8 — raw legs: `client_in`/`client_out` in `Leg`, `trace_raw` and its startup check
-  (FR-003), records for requests rejected before forwarding (FR-014), the no-session file (FR-008), warning
-  wording for real values (FR-012).
+  (FR-003), the `sse.py` change for `client_out`, records for requests rejected before forwarding (FR-014), the
+  no-session file (FR-008), warning wording for real values (FR-012).
 
 ## Complexity Tracking
 

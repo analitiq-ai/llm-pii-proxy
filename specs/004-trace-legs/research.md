@@ -10,9 +10,9 @@
 
 ## R2. Capturing streamed legs
 
-- **Decision**: `restore_stream` yields `ServerSentEvent`s instead of bytes; `app.py` encodes them. One
-  `MessageAssembler` is fed the upstream events (for `upstream_in`) and the restored events (for
-  `client_out`).
+- **Decision**: the handler feeds each upstream event to the request's trace before restoring it (for
+  `upstream_in`). For `client_out` (US2), `restore_stream` yields `ServerSentEvent`s instead of bytes and
+  `app.py` encodes them, so the restored events are fed the same way. One `MessageAssembler` serves both legs.
 - **Rationale**: both legs are the same operation, assembling Anthropic stream events into a message, so one
   implementation serves both. Yielding events keeps the restored events available without parsing the
   encoded bytes back.
@@ -25,19 +25,32 @@
 - **Decision**: follow the stream's own structure. `message_start` gives the message; `content_block_start`
   adds a block; deltas append (`text_delta` → `text`, `thinking_delta` → `thinking`, `signature_delta` →
   `signature`, `input_json_delta` → accumulated JSON parsed into `input` at `content_block_stop`);
-  `message_delta` merges `stop_reason`, `stop_sequence` and `usage`. Unknown events and delta types are
-  ignored. A tool input whose block never stopped stays as the accumulated string in `input`.
-- **Rationale**: produces the same shape as a non-streamed response, so a reader compares legs with one
-  mental model.
+  `message_delta` merges `stop_reason`, `stop_sequence` and `usage`. An `error` event's data is kept under a
+  top-level `error` key. Other events and delta types are ignored. A tool input whose block never stopped, or
+  whose JSON does not parse, stays as the accumulated string in `input`.
+- **Complete** means the assembler saw `message_stop` and no `error` event. A stream that ends cleanly without
+  `message_stop` (upstream truncation), is cut by the client, or carries an `error` event is recorded
+  `complete: false` (FR-007).
+- **Rationale**: the same shape as a non-streamed response, so legs compare with one mental model; deriving
+  completeness from the terminal event covers every side that can cut a stream.
+
+## R3a. One guard for all trace-side work (FR-013)
+
+- **Decision**: handlers touch tracing only through `RequestTrace`. Each of its methods (capture a body, feed
+  an event, finish) catches any exception, logs the leg and the exception type, and stops tracing that leg for
+  the request. `Tap.record` is called only inside that guard, so a tap may raise.
+- **Rationale**: the work that can raise (assembler JSON parsing, payload decoding, the write) runs inside the
+  handler and the stream generator; a guard on the output alone would let an assembler bug cut the client's
+  stream.
 
 ## R4. Writing records
 
 - **Decision**: synchronous append per record: `os.open(path, O_WRONLY|O_APPEND|O_CREAT|O_NOFOLLOW, 0o600)`,
-  one `os.write` of the encoded line, close. Errors (`OSError`, encoding) are caught in `FileTap.record`,
-  logged as leg and exception type only, and dropped (FR-013).
-- **Rationale**: the proxy runs on one event loop, so each record's single write completes before another
-  starts; lines never interleave. A 100 KB write to a local file is well under SC-005's 5 ms. `O_NOFOLLOW`
-  stops a planted symlink redirecting real values.
+  write the encoded line, close. A write that returns fewer bytes than the line raises, like an `OSError`;
+  `RequestTrace` logs and drops it (R3a).
+- **Rationale**: the proxy runs on one event loop, so each record's write completes before another starts;
+  lines never interleave. A 100 KB write to a local file is well under SC-005's 5 ms. `O_NOFOLLOW` stops a
+  planted symlink redirecting real values. Checking the count stops a partial line joining the next record.
 - **Alternatives**: a writer thread with a queue (ordering and shutdown flushing to get right, for no measured
   need); keeping files open per session (descriptor lifetime tied to session expiry, more state).
 
@@ -62,17 +75,25 @@
 ## R7. Retention (FR-011)
 
 - **Decision**: delete `*.jsonl` whose mtime is older than `trace_ttl_h`, at startup and then hourly from a
-  task started in the lifespan and cancelled at shutdown.
+  task started in the lifespan and cancelled at shutdown. A failed periodic sweep is logged (exception type)
+  and the loop goes on; a failed startup sweep fails startup.
 - **Rationale**: mtime is "last written", so an active session's file is never removed mid-session.
 
-## R8. Status per leg
+## R8. Status, order and every exit
 
-- **Decision**: `client_in` and `client_out` carry the status the client received; `upstream_out` and
-  `upstream_in` the status Anthropic returned. `upstream_out` has `null` status when upstream was unreachable.
-  Records for a request are written once the status they carry is known: `client_in` and `upstream_out` when
-  the upstream response headers arrive (or the request is rejected), `upstream_in` and `client_out` when the
-  body or stream ends.
-- **Rationale**: FR-004 requires a status on every record; this keeps the order of US2 scenario 2.
+- **Decision**: every record carries a status. `client_in` and `client_out` carry the status the client
+  received. `upstream_out` and `upstream_in` carry Anthropic's status; when no response came (upstream
+  unreachable) they carry the status the proxy returned (502), as the client legs do. Decided on #4.
+- **One exit**: handlers only *capture* bodies into the request's `RequestTrace`. One wrapper around each
+  traced route calls `finish(status)` on every exit: a response (forwarded upstream errors included), a
+  `ProxyError` (its status), any other exception (500, re-raised). For a streamed response the wrapper defers
+  `finish` to the end of the response body. `finish` runs once and writes each captured, enabled leg in leg
+  order (`client_in`, `upstream_out`, `upstream_in`, `client_out`).
+- **Rationale**: FR-004 requires a status on every record, SC-002 a record per enabled leg the request
+  crossed. Recording at one exit instead of per return path means a new return path can't skip a leg.
+- **Known gap**: a client that disconnects before the first byte of a streamed body leaves the body iterator
+  unstarted, so its `finally` never runs and the response legs are not written. The upstream connection
+  close in the same `finally` has the same gap today.
 
 ## R9. Later outputs
 

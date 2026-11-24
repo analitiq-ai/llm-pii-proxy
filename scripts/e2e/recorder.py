@@ -1,6 +1,7 @@
 """mitmproxy addon: save every upstream request/response pair to $CAPTURE_DIR.
 
-    mitmdump --mode reverse:https://api.anthropic.com -p 8788 -s scripts/e2e/recorder.py
+    mitmdump --listen-host 127.0.0.1 --mode reverse:https://api.anthropic.com -p 8788 \
+        -s scripts/e2e/recorder.py
 
 with the proxy's PII_PROXY_UPSTREAM_URL=http://127.0.0.1:8788, so it records what leaves the
 machine. The capture holds whatever was sent: keep it outside any repository and delete it after

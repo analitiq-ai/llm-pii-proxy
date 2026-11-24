@@ -9,6 +9,7 @@ import respx
 from claude_pii_proxy.app import create_app
 from claude_pii_proxy.config import Settings
 from claude_pii_proxy.detection import DetectedSpan, Detector, Stage
+from claude_pii_proxy.detection.confidential import ConfidentialDetector
 from claude_pii_proxy.detection.presidio import build_engine
 from claude_pii_proxy.operator_lists import OperatorLists
 from claude_pii_proxy.scrub import Pipeline
@@ -94,10 +95,11 @@ async def make_proxy(upstream):
         *,
         always_scrub: Mapping[Category, Sequence[str]] | None = None,
         never_scrub: frozenset[str] = frozenset(),
+        confidential: ConfidentialDetector | None = None,
     ) -> httpx.AsyncClient:
         upstream_client = httpx.AsyncClient(base_url=UPSTREAM)
         app = create_app(
-            pipeline=Pipeline(detectors, never_scrub),
+            pipeline=Pipeline(detectors, never_scrub, confidential),
             sessions=SessionStore(always_scrub or {}, idle_ttl_s=3600),
             upstream=upstream_client,
         )

@@ -278,7 +278,8 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   [structured outputs](https://docs.privatemode.ai/api/structured-outputs/),
   [models](https://docs.privatemode.ai/models/overview/), [rate limits](https://docs.privatemode.ai/rate-limits/),
   [pricing](https://docs.privatemode.ai/pricing/)
-- **Decision**: Default model `glm-flash-latest`: cheapest tier, 1M context, multiplier 1.0. It's configurable.
+- **Decision**: Default model `gpt-oss-120b` (superseded `glm-flash-latest`; see the T058 results below). It's
+  configurable.
   The contract is in [contracts/confidential-detection.md](contracts/confidential-detection.md). The Privatemode
   proxy holds its own key (`--api-key`).
 - **Risk**: the first request of a resumed long session is entirely cache misses and can exceed 200k prompt
@@ -304,6 +305,18 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     `thinking: {"type": "disabled"}` applies only on `/v1/messages`, hence no effect here), over the vLLM-only
     `chat_template_kwargs`. A finding overlapping a placeholder has the token cut out, as the local stage does
     with fixed spans, rather than being dropped. The instruction asks for the shortest identifying phrase.
+- **Executed (T058 recall, 2026-11-24)**: `scripts/e2e/confidential_recall.py`, full pipeline on the 32
+  `context-pii` examples, each sent alone. An example counts when no content word of its phrase survives.
+  - `glm-flash-latest`, contract above: 8/32 (25%). Many empty answers; the shortest-phrase findings leave
+    identifying clauses behind ("Our CFO's daughter" without "the one who rows for the county").
+  - `glm-flash-latest`, instruction asking for the whole description: 18/32 (56%).
+  - `glm-latest` (GLM-5.3): about 0/32; it reports nothing even for "the mayor's chauffeur".
+  - `gpt-oss-120b`, `reasoning_effort: "low"`, `max_completion_tokens: 4096`, whole-description instruction:
+    30/32 (94%). On the S3 workload: 20/20 schema-conformant, 57/60 planted phrases inside a finding, 0
+    findings in code, median 2.4 s and max 3.6 s per chunk (about 2× `glm-flash-latest`). 27 findings
+    included a placeholder; the cut-out handles them.
+  - **Decision (user, 2026-11-24)**: switch to `gpt-oss-120b` with the settings and instruction above. Cost:
+    same per-token price, usage multiplier 2.0, and about twice the latency per chunk.
 
 ## R9 — Stack
 

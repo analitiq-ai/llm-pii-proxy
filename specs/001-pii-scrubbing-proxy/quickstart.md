@@ -26,7 +26,7 @@ A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.m
 | `PII_PROXY_LISTS_PATH` | `~/.config/claude-pii-proxy/lists.toml` | operator lists (FR-018). Absent file means empty lists; an invalid file fails startup |
 | `PII_PROXY_CONFIDENTIAL_ENABLED` | `false` | Story 2 switch (FR-015) |
 | `PII_PROXY_CONFIDENTIAL_URL` | `http://127.0.0.1:8080` | Privatemode proxy |
-| `PII_PROXY_CONFIDENTIAL_MODEL` | `glm-flash-latest` | |
+| `PII_PROXY_CONFIDENTIAL_MODEL` | `gpt-oss-120b` | |
 | `PII_PROXY_CONFIDENTIAL_TIMEOUT_S` | `30` | |
 | `PII_PROXY_CONFIDENTIAL_CHUNK_CHARS` | `24000` | |
 | `PII_PROXY_CONFIDENTIAL_CONCURRENCY` | `4` | |

@@ -20,9 +20,9 @@ proxy never handles the Privatemode key.
 
 ```json
 {
-  "model": "glm-flash-latest",
+  "model": "gpt-oss-120b",
   "messages": [
-    {"role": "system", "content": "<detection instructions: report the shortest exact phrase that identifies a person, copied verbatim, not the whole sentence or line; tokens matching PII_<CATEGORY>_<NNNN> are already redacted and must never be included; respond with JSON only>"},
+    {"role": "system", "content": "<detection instructions: report each description that singles out one person whole, copied verbatim, with the clauses that make it identifying but not the rest of the sentence; tokens matching PII_<CATEGORY>_<NNNN> are already redacted, text around them may still identify someone; respond with JSON only>"},
     {"role": "user", "content": "<chunk text>"}
   ],
   "response_format": {"type": "json_schema", "json_schema": {"name": "pii_findings", "strict": true, "schema": {
@@ -32,15 +32,16 @@ proxy never handles the Privatemode key.
       "properties": {"text": {"type": "string", "minLength": 1}}}}}}}},
   "temperature": 0,
   "frequency_penalty": 0.1,
-  "reasoning_effort": "none",
-  "max_completion_tokens": 2048
+  "reasoning_effort": "low",
+  "max_completion_tokens": 4096
 }
 ```
 
 `frequency_penalty` and the explicit JSON instruction follow Privatemode's structured-output guidance, which
-warns some models emit endless whitespace without them. `reasoning_effort: "none"` is Privatemode's documented
-switch for GLM reasoning (v1.61.0+): with reasoning on, `glm-flash-latest` spent the whole completion budget
-reasoning and returned no JSON for 17 of 20 chunks (research R8, spike S3).
+warns some models emit endless whitespace without them. `gpt-oss-120b` always reasons; `"low"` is its smallest
+effort, and 4096 tokens leaves room for reasoning plus findings. Model and instruction were chosen on SC-005
+recall: the GLM models with reasoning off replaced at most 56% of the context-PII examples, this pairing 94%
+(research R8).
 
 ## Response handling
 

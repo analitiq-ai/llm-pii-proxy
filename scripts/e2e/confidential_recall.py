@@ -2,11 +2,11 @@
 
 Manual: calls the real Privatemode proxy at PII_PROXY_CONFIDENTIAL_URL.
 
-    uv run python -m scripts.e2e.confidential_recall [--context-chars N]
+    uv run python -m scripts.e2e.confidential_recall [--context-chars N] [--filler code|prose]
 
 With --context-chars, each example is sent as a session sends it: in one chunk after a leaf of N
-characters of other text (stdlib source). A rate-limited example is retried after a wait; one that
-still gets no answer is reported as failed and left out of the rate.
+characters of other text, stdlib source (code) or docstrings (prose). A rate-limited example is
+retried after a wait; one that still gets no answer is reported as failed and left out of the rate.
 
 Exits 0 at or above the 70% target, 1 below it, 2 if any example failed (measurement incomplete).
 Prints example numbers only, never text.
@@ -30,10 +30,11 @@ from claude_pii_proxy.errors import ConfidentialUnavailable
 from claude_pii_proxy.report import ScrubReport
 from claude_pii_proxy.scrub import LeafResult, Pipeline
 from claude_pii_proxy.vault import Vault
-from tests.fixtures.filler import stdlib_code
+from tests.fixtures.filler import stdlib_code, stdlib_prose
 
 EXAMPLES = Path(__file__).parents[2] / "tests" / "fixtures" / "context-pii" / "examples.jsonl"
 TARGET = 0.70
+FILLERS = {"code": stdlib_code, "prose": stdlib_prose}
 # Privatemode limits prompt tokens per minute; a 20k-character chunk is about 5k tokens.
 ATTEMPTS = 4
 RETRY_WAIT_S = 30
@@ -76,9 +77,9 @@ async def with_retries(
     return result
 
 
-async def main(context_chars: int) -> int:
+async def main(context_chars: int, filler_name: str) -> int:
     settings = Settings()
-    filler = stdlib_code() if context_chars else ""
+    filler = FILLERS[filler_name]() if context_chars else ""
     examples = [json.loads(line) for line in EXAMPLES.read_text().splitlines() if line]
     secrets = SecretDetector(settings.secret_detector_path)
     await secrets.start()
@@ -125,4 +126,6 @@ async def main(context_chars: int) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--context-chars", type=int, default=0)
-    sys.exit(asyncio.run(main(parser.parse_args().context_chars)))
+    parser.add_argument("--filler", choices=sorted(FILLERS), default="code")
+    args = parser.parse_args()
+    sys.exit(asyncio.run(main(args.context_chars, args.filler)))

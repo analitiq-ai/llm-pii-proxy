@@ -102,3 +102,21 @@ async def test_other_failures_are_not_retried():
         await recall.with_retries(scrub, attempts=3, wait_s=1, sleep=sleep), RuntimeError
     )
     assert len(calls) == 1
+
+
+def test_prose_filler_is_stdlib_docstrings_not_code():
+    import ast
+    from pathlib import Path
+
+    from tests.fixtures.filler import stdlib_prose
+
+    prose = stdlib_prose()
+    assert ast.get_docstring(ast.parse(Path(ast.__file__).read_text())) in prose
+    assert "import " not in prose.splitlines()[0]
+    assert len(prose) > 32 * 20_000
+
+
+def test_filler_is_chosen_by_name():
+    from tests.fixtures.filler import stdlib_code, stdlib_prose
+
+    assert {"code": stdlib_code, "prose": stdlib_prose} == recall.FILLERS

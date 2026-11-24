@@ -18,12 +18,16 @@ esac
 ARCHIVE="$TOOLS/go$GO_VERSION.$PLATFORM.tar.gz"
 mkdir -p "$TOOLS"
 
+# Returns only match (0) or mismatch (1). A digest that can't be computed stops the build instead of
+# being reported as a mismatch, which is how #6 was misread.
 verify() {
-  if command -v sha256sum >/dev/null; then
-    echo "$SHA256  $ARCHIVE" | sha256sum -c --status
-  else
-    echo "$SHA256  $ARCHIVE" | shasum -a 256 -c --status
+  local status=0
+  "$ROOT/scripts/sha256-matches.sh" "$ARCHIVE" "$SHA256" || status=$?
+  if ((status > 1)); then
+    echo "checksum tool failed on $ARCHIVE" >&2
+    exit 1
   fi
+  return "$status"
 }
 
 if [[ ! -f "$ARCHIVE" ]] || ! verify; then

@@ -300,8 +300,10 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     covered fell to 41/60, mostly from a dropped leading "the", some from descriptions cut short.
   - A 402 (organisation quota locked until a payment card is added) came back as a plain non-2xx; the
     contract's fail-closed path covers it.
-  - Open decisions: which reasoning switch goes in the contract; whether a finding overlapping a placeholder
-    is dropped (contract) or has the token subtracted, as the local stage does with fixed spans.
+  - **Decisions (user, 2026-11-24)**: `reasoning_effort: "none"`, Privatemode's documented switch (v1.61.0+;
+    `thinking: {"type": "disabled"}` applies only on `/v1/messages`, hence no effect here), over the vLLM-only
+    `chat_template_kwargs`. A finding overlapping a placeholder has the token cut out, as the local stage does
+    with fixed spans, rather than being dropped. The instruction asks for the shortest identifying phrase.
 
 ## R9 — Stack
 

@@ -22,7 +22,7 @@ proxy never handles the Privatemode key.
 {
   "model": "glm-flash-latest",
   "messages": [
-    {"role": "system", "content": "<detection instructions; tokens matching PII_<CATEGORY>_<NNNN> are already redacted and must not be reported; respond with JSON only>"},
+    {"role": "system", "content": "<detection instructions: report the shortest exact phrase that identifies a person, copied verbatim, not the whole sentence or line; tokens matching PII_<CATEGORY>_<NNNN> are already redacted and must never be included; respond with JSON only>"},
     {"role": "user", "content": "<chunk text>"}
   ],
   "response_format": {"type": "json_schema", "json_schema": {"name": "pii_findings", "strict": true, "schema": {
@@ -32,12 +32,15 @@ proxy never handles the Privatemode key.
       "properties": {"text": {"type": "string", "minLength": 1}}}}}}}},
   "temperature": 0,
   "frequency_penalty": 0.1,
+  "reasoning_effort": "none",
   "max_completion_tokens": 2048
 }
 ```
 
 `frequency_penalty` and the explicit JSON instruction follow Privatemode's structured-output guidance, which
-warns some models emit endless whitespace without them.
+warns some models emit endless whitespace without them. `reasoning_effort: "none"` is Privatemode's documented
+switch for GLM reasoning (v1.61.0+): with reasoning on, `glm-flash-latest` spent the whole completion budget
+reasoning and returned no JSON for 17 of 20 chunks (research R8, spike S3).
 
 ## Response handling
 
@@ -45,7 +48,7 @@ warns some models emit endless whitespace without them.
 |---|---|
 | Valid JSON matching the schema | For each `text`, every exact occurrence in the chunk becomes a `CONTEXT` span |
 | A finding not found verbatim in the chunk | Dropped and counted as `confidential_unlocated`; the model paraphrased |
-| A finding that overlaps an existing placeholder token | Dropped; already redacted |
+| A finding that overlaps an existing placeholder token | The token is cut out and the parts on either side become spans, exactly as the local stage treats detected spans that overlap fixed spans |
 | Non-2xx, timeout (`PII_PROXY_CONFIDENTIAL_TIMEOUT_S`, default 30), invalid JSON, or schema mismatch | The whole Claude request fails closed (FR-014). Status `503` for transport errors and timeouts, `502` for an invalid answer. Body format in http-interface.md |
 
 The pass's findings join the vault like any other detection (FR-013). A leaf is cached once every chunk

@@ -221,6 +221,13 @@ async def test_stream_without_message_stop_is_incomplete(traced, upstream, trace
     assert records(trace_dir)[1]["complete"] is False
 
 
+async def test_stream_with_no_events_recorded_empty_and_incomplete(traced, upstream, trace_dir):
+    upstream.post("/v1/messages").mock(return_value=stream_response(b""))
+    await traced().post("/v1/messages", json=STREAM_BODY, headers=SESSION)
+    back = records(trace_dir)[1:]
+    assert [(t["leg"], t["payload"], t["complete"]) for t in back] == [("upstream_in", {}, False)]
+
+
 async def test_stream_with_error_event_is_incomplete(traced, upstream, trace_dir):
     error = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
     # message_stop after the error: only the error can make the record incomplete.
@@ -285,7 +292,10 @@ async def test_tracing_never_changes_traffic(
 
 @pytest.mark.parametrize(
     ("after_chunks", "crossed"),
-    [(0, [("upstream_out", True)]), (1, [("upstream_out", True), ("upstream_in", False)])],
+    [
+        (0, [("upstream_out", True), ("upstream_in", False)]),
+        (1, [("upstream_out", True), ("upstream_in", False)]),
+    ],
     ids=["before body", "mid body"],
 )
 async def test_stream_cut_off_by_client_records_what_crossed(

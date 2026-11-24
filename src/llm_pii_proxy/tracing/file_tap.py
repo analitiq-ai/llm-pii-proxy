@@ -55,9 +55,18 @@ class FileTap:
             raise OSError(f"short write: {written} of {len(line)} bytes")
 
     def sweep(self, now: float) -> None:
+        """Deletes expired trace files. A file the OS refuses is logged and skipped, so it can't keep
+        the rest; the sweep still fails once the loop is done."""
+        failed = 0
         for trace_file in self._directory.glob("*.jsonl"):
-            if now - os.lstat(trace_file).st_mtime > self._ttl_s:
-                trace_file.unlink(missing_ok=True)
+            try:
+                if now - os.lstat(trace_file).st_mtime > self._ttl_s:
+                    trace_file.unlink(missing_ok=True)
+            except OSError as e:
+                failed += 1
+                log.warning("trace file %s not swept: %s", trace_file, type(e).__name__)
+        if failed:
+            raise OSError(f"{failed} trace file(s) could not be swept")
 
     def _path_for(self, session_id: str | None) -> Path:
         if session_id is None or not _SAFE_SESSION_ID.fullmatch(session_id):

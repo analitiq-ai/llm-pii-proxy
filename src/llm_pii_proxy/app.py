@@ -230,6 +230,7 @@ class _Proxy:
     ) -> Response:
         events = EventSource(upstream).aiter_sse()
         if trace.wants(Leg.UPSTREAM_IN):
+            trace.open_stream(Leg.UPSTREAM_IN)
             events = _fed_to(trace, Leg.UPSTREAM_IN, events)
 
         body = restore_stream(events, session.vault, report)

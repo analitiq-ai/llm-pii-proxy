@@ -35,9 +35,7 @@ class TraceRecord:
 
     def to_line(self) -> bytes:
         line = {
-            "time": self.time.astimezone(UTC)
-            .isoformat(timespec="milliseconds")
-            .replace("+00:00", "Z"),
+            "time": _utc_millis(self.time),
             "session_id": self.session_id,
             "request_id": self.request_id,
             "leg": self.leg.value,
@@ -88,11 +86,16 @@ class RequestTrace:
         if leg in self._legs:
             self._bodies[leg] = body
 
+    def open_stream(self, leg: Leg) -> None:
+        """Called when the leg's stream starts, so it is recorded even if no event ever crosses."""
+        if leg in self._legs:
+            self._streams[leg] = MessageAssembler()
+
     def feed(self, leg: Leg, event: ServerSentEvent) -> None:
         if leg not in self._legs:
             return
         try:
-            self._streams.setdefault(leg, MessageAssembler()).feed(event)
+            self._streams[leg].feed(event)
         except Exception as e:  # noqa: BLE001 - any trace failure must stay out of the request
             self._drop(leg, e)
 

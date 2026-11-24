@@ -38,11 +38,14 @@ One per traced request, created by the route wrapper (R8). The only tracing obje
 - Holds `tap`, enabled `legs`, `session_id`, `route`, `request_id`.
 - `wants(leg) -> bool`: lets the handler skip work (and stream assembly) for a disabled leg.
 - `capture(leg, body: bytes)`: keeps a body for the leg.
+- `open_stream(leg)`: starts the leg's `MessageAssembler` when its stream starts, so a stream cut before any
+  event is still recorded (empty, incomplete).
 - `feed(leg, event)`: feeds a stream event to the leg's `MessageAssembler`.
 - `upstream_responded(status)`: records Anthropic's status for the upstream legs.
-- `finish(status)`: once; builds a `TraceRecord` for each captured or fed enabled leg in leg order and passes
-  it to the tap.
-- Every method catches any exception, logs leg and exception type, and drops that leg (R3a, FR-013).
+- `finish(status)`: once; builds a `TraceRecord` for each captured or opened enabled leg in leg order and
+  passes it to the tap.
+- `feed` and the per-leg build-and-write in `finish` catch any exception, log leg and exception type, and drop
+  that leg (R3a, FR-013).
 
 ## MessageAssembler
 

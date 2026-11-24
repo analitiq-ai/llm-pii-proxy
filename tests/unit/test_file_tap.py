@@ -8,6 +8,7 @@ import os
 import stat
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -169,6 +170,30 @@ def test_sweep_deletes_only_expired_trace_files(traces):
         os.utime(path, (now - age, now - age))
     FileTap.open(traces, DAY_S, UID).sweep(now)
     assert sorted(p.name for p in traces.iterdir()) == ["fresh.jsonl", "notes.txt"]
+
+
+def test_sweep_continues_past_a_failing_entry_then_raises(traces, monkeypatch, caplog):
+    now = time.time()
+    expired = [traces / f"s{i}.jsonl" for i in range(3)]
+    for path in expired:
+        path.write_text("")
+        path.chmod(0o600)
+        os.utime(path, (now - 2 * DAY_S, now - 2 * DAY_S))
+    tap = FileTap.open(traces, DAY_S, UID)
+    real_unlink = Path.unlink
+    failed = []
+
+    def unlink(path, *args, **kwargs):
+        if not failed:
+            failed.append(path)
+            raise PermissionError("denied")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    with caplog.at_level(logging.WARNING), pytest.raises(OSError, match="1 trace file"):
+        tap.sweep(now)
+    assert [p.name for p in traces.iterdir()] == [failed[0].name]
+    assert failed[0].name in caplog.text and "PermissionError" in caplog.text
 
 
 async def test_periodic_sweep_survives_a_failing_sweep(caplog):

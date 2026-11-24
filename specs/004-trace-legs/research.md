@@ -36,12 +36,13 @@
 
 ## R3a. One guard for all trace-side work (FR-013)
 
-- **Decision**: handlers touch tracing only through `RequestTrace`. Each of its methods (capture a body, feed
-  an event, finish) catches any exception, logs the leg and the exception type, and stops tracing that leg for
-  the request. `Tap.record` is called only inside that guard, so a tap may raise.
-- **Rationale**: the work that can raise (assembler JSON parsing, payload decoding, the write) runs inside the
-  handler and the stream generator; a guard on the output alone would let an assembler bug cut the client's
-  stream.
+- **Decision**: handlers touch tracing only through `RequestTrace`. Feeding a stream event, and building and
+  writing each leg's record in `finish`, catch any exception, log the leg and the exception type, and stop
+  tracing that leg for the request. `Tap.record` is called only inside that guard, so a tap may raise.
+  Capturing a body, opening a stream and noting the upstream status only store a value and are not guarded.
+- **Rationale**: the work that can raise (assembler JSON parsing while the stream runs; payload decoding and
+  the write in `finish`) is all inside the guard; a guard on the output alone would let an assembler bug cut
+  the client's stream.
 
 ## R4. Writing records
 
@@ -75,8 +76,9 @@
 ## R7. Retention (FR-011)
 
 - **Decision**: delete `*.jsonl` whose mtime is older than `trace_ttl_h`, at startup and then hourly from a
-  task started in the lifespan and cancelled at shutdown. A failed periodic sweep is logged (exception type)
-  and the loop goes on; a failed startup sweep fails startup.
+  task started in the lifespan and cancelled at shutdown. A file that can't be deleted is logged (its path
+  and the exception type) and the sweep goes on to the rest, then fails. A failed periodic sweep is logged
+  (exception type) and the loop goes on; a failed startup sweep fails startup.
 - **Rationale**: mtime is "last written", so an active session's file is never removed mid-session.
 
 ## R8. Status, order and every exit
@@ -87,13 +89,15 @@
 - **One exit**: handlers only *capture* bodies into the request's `RequestTrace`. One wrapper around each
   traced route calls `finish(status)` on every exit: a response (forwarded upstream errors included), a
   `ProxyError` (its status), any other exception (500, re-raised). For a streamed response the wrapper defers
-  `finish` to the end of the response body. `finish` runs once and writes each captured, enabled leg in leg
+  `finish` until the response ends, however it ends. The response runs its end steps (finish the trace, close
+  the body, close the upstream connection, log) in its own call: a step in the body's `finally` would not do,
+  since on a client disconnect Starlette leaves the body to the garbage collector, and a body not yet started
+  has no `finally` to run. A streamed leg is opened when its stream starts, so a stream cut before any event
+  is still recorded, empty and `complete: false` (FR-007). `finish` runs once and writes each captured, enabled leg in leg
   order (`client_in`, `upstream_out`, `upstream_in`, `client_out`).
 - **Rationale**: FR-004 requires a status on every record, SC-002 a record per enabled leg the request
   crossed. Recording at one exit instead of per return path means a new return path can't skip a leg.
-- **Known gap**: a client that disconnects before the first byte of a streamed body leaves the body iterator
-  unstarted, so its `finally` never runs and the response legs are not written. The upstream connection
-  close in the same `finally` has the same gap today.
+- **Known gap**: a request cancelled before its handler returns writes nothing.
 
 ## R9. Later outputs
 

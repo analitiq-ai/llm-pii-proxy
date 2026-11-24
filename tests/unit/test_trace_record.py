@@ -141,9 +141,18 @@ def test_non_json_body_recorded_as_text():
     assert tap.records[0].payload == "overloaded �"
 
 
+def test_opened_stream_without_events_recorded_empty_and_incomplete():
+    tap = RecordingTap()
+    trace = make_trace(tap)
+    trace.open_stream(Leg.UPSTREAM_IN)
+    trace.finish(200)
+    assert [(r.leg, r.payload, r.complete) for r in tap.records] == [(Leg.UPSTREAM_IN, {}, False)]
+
+
 def test_fed_leg_is_assembled():
     tap = RecordingTap()
     trace = make_trace(tap)
+    trace.open_stream(Leg.UPSTREAM_IN)
     trace.feed(Leg.UPSTREAM_IN, ev("message_start", {"message": {"id": "m", "content": []}}))
     trace.finish(200)
     record = tap.records[0]
@@ -167,6 +176,7 @@ def test_assembler_failure_drops_only_that_leg(caplog):
     tap = RecordingTap()
     trace = make_trace(tap)
     trace.capture(Leg.UPSTREAM_OUT, b"{}")
+    trace.open_stream(Leg.UPSTREAM_IN)
     with caplog.at_level(logging.WARNING):
         trace.feed(Leg.UPSTREAM_IN, ev("message_start", SECRET_TEXT))
         trace.feed(Leg.UPSTREAM_IN, ev("message_stop", {}))

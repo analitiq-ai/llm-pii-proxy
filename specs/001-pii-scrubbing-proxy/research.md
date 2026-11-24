@@ -393,6 +393,20 @@ Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator l
 - **V7 vs the recall script**: the script sends each example alone; in a session the notes share a chunk with
   Claude Code's system prompt, and recall drops (5/8 here, small sample). SC-005 as measured by the script is
   likely optimistic for real sessions.
+- **SC-005 at session size (2026-11-24)**: `confidential_recall.py --context-chars N` sends each example after N
+  characters of stdlib source in one chunk. Paced runs, 0 failures:
+
+  | Context | Run 1 | Run 2 |
+  |---|---|---|
+  | none | 30/32 (94%) | 30/32 (94%) |
+  | 6 000 | 26/32 (81%) | 26/32 (81%) |
+  | 20 000 | 24/32 (75%) | 26/32 (81%) |
+
+  Recall falls with chunk size but stays above the 70% target at session size, so SC-005 is not recalibrated;
+  V9 now measures at 20 000. Unpaced runs earlier read 38% at 20 000: Privatemode answered 429 and the
+  script counted those as misses (fixed: retried, and reported apart). Code was the filler; Claude Code's
+  system prompt is prose, and V7's 5/8 used it, so prose context may read lower. Sending each leaf to
+  Privatemode alone is not needed on these numbers.
 - **V10 failures**: proxy `sort-by-name-descending` 3/3. Claude sees only placeholders, said so, and left the
   file unchanged. This is the excluded class (spec Assumptions: tasks that need to see a literal value); the
   task should not have been in the set. Direct `delete-customer2` 2/3: missing trailing newline, model-side.

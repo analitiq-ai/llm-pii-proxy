@@ -1,14 +1,21 @@
 """Startup wiring (T045): lists loaded before serving, secret detector started and stopped."""
 
+import asyncio
 import json
+import logging
+import os
+import time
 
 import httpx
 import pytest
 import respx
 
+import llm_pii_proxy.__main__ as main_module
 from llm_pii_proxy.__main__ import build_app
 from llm_pii_proxy.detection.gitleaks import SecretDetectorStartupError
 from llm_pii_proxy.operator_lists import OperatorListsError
+from llm_pii_proxy.tracing.file_tap import TraceDirError
+from llm_pii_proxy.tracing.record import Leg
 from tests.conftest import UPSTREAM
 from tests.integration.conftest import SESSION, message_response, sent
 
@@ -107,3 +114,79 @@ async def test_claude_code_identity_line_reaches_anthropic_unchanged(
     assert r.status_code == 200
     assert sent(upstream)["system"][0]["text"] == identity
     assert sent(upstream)["messages"][0]["content"] == "Hi, I'm PII_PERSON_0001."
+
+
+TRACE_LEGS = frozenset({Leg.UPSTREAM_OUT, Leg.UPSTREAM_IN})
+
+
+def tracing(settings, trace_dir, legs=TRACE_LEGS):
+    return settings.model_copy(update={"trace_legs": legs, "trace_dir": trace_dir})
+
+
+def test_tracing_off_creates_no_trace_directory(settings, tmp_path, presidio_engine):
+    trace_dir = tmp_path / "traces"
+    build_app(tracing(settings, trace_dir, frozenset()), presidio_engine)
+    assert not trace_dir.exists()
+
+
+def test_trace_directory_in_git_tree_fails_before_serving(settings, tmp_path, presidio_engine):
+    (tmp_path / ".git").mkdir()
+    with pytest.raises(TraceDirError, match="git working tree"):
+        build_app(tracing(settings, tmp_path / "traces"), presidio_engine)
+
+
+def test_trace_directory_with_wrong_mode_fails_before_serving(settings, tmp_path, presidio_engine):
+    trace_dir = tmp_path / "traces"
+    trace_dir.mkdir()
+    trace_dir.chmod(0o755)
+    with pytest.raises(TraceDirError, match="0755"):
+        build_app(tracing(settings, trace_dir), presidio_engine)
+
+
+def test_tracing_on_warns_once_naming_legs_and_directory(
+    settings, tmp_path, presidio_engine, caplog
+):
+    trace_dir = tmp_path / "traces"
+    with caplog.at_level(logging.WARNING):
+        build_app(tracing(settings, trace_dir), presidio_engine)
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "upstream_in" in warnings[0] and "upstream_out" in warnings[0]
+    assert str(trace_dir) in warnings[0]
+
+
+def test_startup_sweeps_expired_traces(settings, tmp_path, presidio_engine):
+    trace_dir = tmp_path / "traces"
+    trace_dir.mkdir(mode=0o700)
+    trace_dir.chmod(0o700)
+    expired = trace_dir / "old.jsonl"
+    expired.write_text("")
+    expired.chmod(0o600)
+    old = time.time() - 25 * 3600
+    os.utime(expired, (old, old))
+    build_app(tracing(settings, trace_dir), presidio_engine)
+    assert not expired.exists()
+
+
+async def test_periodic_sweep_deletes_expired_traces_while_serving(
+    settings, tmp_path, presidio_engine, secret_detector_binary, monkeypatch
+):
+    monkeypatch.setattr(main_module, "TRACE_SWEEP_INTERVAL_S", 0)
+    trace_dir = tmp_path / "traces"
+    app = build_app(tracing(settings, trace_dir), presidio_engine)
+    expired = trace_dir / "old.jsonl"
+    expired.write_text("")
+    expired.chmod(0o600)
+    old = time.time() - 25 * 3600
+    os.utime(expired, (old, old))
+
+    def sweep_tasks():
+        return [t for t in asyncio.all_tasks() if t.get_name() == "trace-retention-sweep"]
+
+    async with app.router.lifespan_context(app):
+        (task,) = sweep_tasks()
+        async with asyncio.timeout(5):
+            while expired.exists():
+                await asyncio.sleep(0.01)
+    await asyncio.sleep(0)
+    assert task.cancelled()

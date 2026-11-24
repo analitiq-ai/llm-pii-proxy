@@ -14,6 +14,7 @@ from llm_pii_proxy.detection.presidio import build_engine
 from llm_pii_proxy.operator_lists import OperatorLists
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import SessionStore
+from llm_pii_proxy.tracing.record import Leg, NullTap, Tap
 from llm_pii_proxy.vault import Category
 
 UPSTREAM = "https://upstream.test"
@@ -96,12 +97,16 @@ async def make_proxy(upstream):
         always_scrub: Mapping[Category, Sequence[str]] | None = None,
         never_scrub: frozenset[str] = frozenset(),
         confidential: ConfidentialDetector | None = None,
+        tap: Tap | None = None,
+        trace_legs: frozenset[Leg] = frozenset(),
     ) -> httpx.AsyncClient:
         upstream_client = httpx.AsyncClient(base_url=UPSTREAM)
         app = create_app(
             pipeline=Pipeline(detectors, never_scrub, confidential),
             sessions=SessionStore(always_scrub or {}, idle_ttl_s=3600),
             upstream=upstream_client,
+            tap=NullTap() if tap is None else tap,
+            trace_legs=trace_legs,
         )
         proxy = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://proxy")
         clients.extend([upstream_client, proxy])

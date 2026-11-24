@@ -1,11 +1,13 @@
 import ipaddress
 from pathlib import Path
+from typing import Annotated, Any
 
 import httpx
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from llm_pii_proxy.detection.chunking import DEFAULT_OVERLAP
+from llm_pii_proxy.tracing.record import Leg
 
 # The secret detector must report exactly this; another gitleaks build may apply different rules.
 PINNED_GITLEAKS_VERSION = "v8.30.1"
@@ -27,6 +29,9 @@ class Settings(BaseSettings):
     confidential_timeout_s: float = Field(30, gt=0)
     confidential_chunk_chars: int = Field(6000, gt=DEFAULT_OVERLAP)
     confidential_concurrency: int = Field(4, ge=1)
+    trace_legs: Annotated[frozenset[Leg], NoDecode] = frozenset()
+    trace_dir: Path = Path("~/.local/state/llm-pii-proxy/traces")
+    trace_ttl_h: float = Field(24, gt=0)
 
     @field_validator("host")
     @classmethod
@@ -50,7 +55,14 @@ class Settings(BaseSettings):
             raise ValueError("must not end with '/': request paths are appended to it")
         return url
 
-    @field_validator("lists_path", "secret_detector_path")
+    @field_validator("trace_legs", mode="before")
+    @classmethod
+    def _comma_separated(cls, legs: Any) -> Any:
+        if isinstance(legs, str):
+            return frozenset(name.strip() for name in legs.split(",") if name.strip())
+        return legs
+
+    @field_validator("lists_path", "secret_detector_path", "trace_dir")
     @classmethod
     def _absolute(cls, path: Path) -> Path:
         # Against the startup cwd: the secret detector itself runs with cwd "/".

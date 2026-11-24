@@ -5,7 +5,7 @@ stream idle timeout. Only text and tool-input deltas change.
 """
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any
 
 from httpx_sse import ServerSentEvent
@@ -23,7 +23,7 @@ _RESTORED_DELTAS: dict[str, tuple[str, Escape]] = {
 
 async def restore_stream(
     events: AsyncIterator[ServerSentEvent], vault: Vault, report: ScrubReport
-) -> AsyncIterator[bytes]:
+) -> AsyncGenerator[bytes]:
     # Per content block index: its restorer and the delta type it streams.
     blocks: dict[int, tuple[HoldbackRestorer, str]] = {}
     try:

@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from llm_pii_proxy.config import PINNED_GITLEAKS_VERSION, Settings
+from llm_pii_proxy.tracing.record import Leg
 
 
 @pytest.fixture(autouse=True)
@@ -83,3 +84,38 @@ def test_secret_detector_path_resolved_against_startup_cwd(monkeypatch, tmp_path
         Settings(secret_detector_path=Path("rel/bin")).secret_detector_path == tmp_path / "rel/bin"
     )
     assert Settings().secret_detector_path == tmp_path / ".tools/gitleaks-sidecar"
+
+
+def test_tracing_off_by_default():
+    s = Settings()
+    assert s.trace_legs == frozenset()
+    assert s.trace_dir == Path("~/.local/state/llm-pii-proxy/traces").expanduser()
+    assert s.trace_ttl_h == 24
+
+
+def test_trace_legs_read_comma_separated(monkeypatch):
+    monkeypatch.setenv("PII_PROXY_TRACE_LEGS", " upstream_out , upstream_in ")
+    assert Settings().trace_legs == {Leg.UPSTREAM_OUT, Leg.UPSTREAM_IN}
+
+
+def test_empty_trace_legs_is_off(monkeypatch):
+    monkeypatch.setenv("PII_PROXY_TRACE_LEGS", "")
+    assert Settings().trace_legs == frozenset()
+
+
+@pytest.mark.parametrize("legs", ["client_in", "upstream_out,bogus"])
+def test_unknown_trace_leg_rejected(monkeypatch, legs):
+    monkeypatch.setenv("PII_PROXY_TRACE_LEGS", legs)
+    with pytest.raises(ValidationError, match="upstream_out"):
+        Settings()
+
+
+def test_trace_dir_made_absolute(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert Settings(trace_dir=Path("traces")).trace_dir == tmp_path / "traces"
+
+
+@pytest.mark.parametrize("ttl", [0, -1])
+def test_trace_ttl_must_be_positive(ttl):
+    with pytest.raises(ValidationError, match="greater than 0"):
+        Settings(trace_ttl_h=ttl)

@@ -37,6 +37,12 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
   tasks that involve them.
 - **Mapping stays local.** It lives in memory only, per session, and is never logged. Each response carries
   an `x-pii-proxy-scrubbed` header with counts per category, never values.
+- **Optional payload tracing.** Writes what each Messages and token-count request sent to Anthropic and what
+  came back to local JSON Lines files, one per session, to show what the proxy changed. These legs hold
+  what Anthropic saw: placeholders where the proxy scrubbed, and real values in anything it does not scrub
+  (see [Limits](#limits)). Owner-only files outside any git repository; a session's file is deleted once it
+  has gone unwritten for the retention period (24 hours by default). Tracing never changes or blocks a
+  request. Off by default.
 - **Loopback only.** The proxy listens only on a loopback IP address (`127.0.0.0/8` or `::1`). Host names,
   `localhost` included, are rejected: a name can resolve to a non-loopback address.
 
@@ -134,6 +140,19 @@ If Privatemode is down or rate-limited, requests fail with `503` rather than ski
 
 All settings are optional `PII_PROXY_*` environment variables; invalid values stop the proxy at startup. The
 full list with defaults is in [quickstart.md](specs/001-pii-scrubbing-proxy/quickstart.md#configuration-environment).
+
+Payload tracing:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PII_PROXY_TRACE_LEGS` | empty: tracing off | comma-separated legs to record: `upstream_out` (sent to Anthropic), `upstream_in` (Anthropic's response, streams assembled into one message) |
+| `PII_PROXY_TRACE_DIR` | `~/.local/state/llm-pii-proxy/traces` | must be outside any git working tree, mode 0700 and yours; created if missing |
+| `PII_PROXY_TRACE_TTL_H` | `24` | hours a trace file is kept after its last write |
+
+Each line is one leg of one request: `time`, `session_id`, `request_id` (shared by the legs of a request),
+`leg`, `route`, `status` (Anthropic's, or the proxy's own 502 when Anthropic was unreachable), `complete`
+(false for a stream that ended early or with an error), `payload`. Every startup with tracing on logs a
+warning naming the legs and the directory.
 
 ## Limits
 

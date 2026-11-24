@@ -1,11 +1,13 @@
 """Streamed responses (US1 scenario 5, contracts/http-interface.md Responses)."""
 
 import json
+import logging
 
 import httpx
+import pytest
 
 from llm_pii_proxy.vault import Category
-from tests.integration.conftest import SESSION
+from tests.integration.conftest import SESSION, post_and_disconnect
 
 
 def sse(*events: tuple[str, dict]) -> bytes:
@@ -111,3 +113,67 @@ async def test_thinking_and_signature_deltas_byte_identical(make_proxy, regex_de
     proxy = make_proxy([regex_detector])
     out = await stream_through(proxy, upstream, "a@b.com", events)
     assert out[:2] == [(e, json.dumps(d)) for e, d in events[:2]]
+
+
+class UpstreamBody(httpx.AsyncByteStream):
+    def __init__(self, *chunks: bytes) -> None:
+        self.chunks = chunks
+        self.read = 0
+        self.closed = False
+
+    async def __aiter__(self):
+        for chunk in self.chunks:
+            self.read += 1
+            yield chunk
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+@pytest.mark.parametrize("after_chunks", [0, 1], ids=["before body", "mid body"])
+async def test_client_disconnect_closes_upstream_stream(
+    make_proxy, regex_detector, upstream, after_chunks
+):
+    event = sse(("message_start", {"type": "message_start", "message": {"content": []}}))
+    upstream_body = UpstreamBody(*[event] * 100)
+    upstream.post("/v1/messages").mock(
+        return_value=httpx.Response(
+            200, stream=upstream_body, headers={"content-type": "text/event-stream"}
+        )
+    )
+    body = {"model": "m", "stream": True, "messages": [{"role": "user", "content": "hi"}]}
+    await post_and_disconnect(
+        make_proxy([regex_detector]), "/v1/messages", body, after_chunks=after_chunks
+    )
+    assert upstream_body.read < 100, "the proxy read the whole stream: the client never cut it off"
+    assert upstream_body.closed
+
+
+async def test_client_disconnect_logs_unissued_tokens_of_open_block(
+    make_proxy, regex_detector, upstream, caplog
+):
+    events = [
+        ("message_start", {"type": "message_start", "message": {"content": []}}),
+        (
+            "content_block_start",
+            {"type": "content_block_start", "index": 0, "content_block": {"type": "text"}},
+        ),
+        # PII_EMAIL_0001 is issued for the request's address; only PII_EMAIL_0009 is unissued.
+        delta(0, "text_delta", "PII_EMAIL_0001 PII_EMAIL_0009 "),
+        delta(0, "text_delta", "more"),
+        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+    ]
+    upstream.post("/v1/messages").mock(
+        return_value=httpx.Response(
+            200,
+            stream=UpstreamBody(*(sse(event) for event in events)),
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+    body = {"model": "m", "stream": True, "messages": [{"role": "user", "content": "ann@x.com"}]}
+    with caplog.at_level(logging.INFO):
+        await post_and_disconnect(
+            make_proxy([regex_detector]), "/v1/messages", body, after_chunks=3
+        )
+    (line,) = [r.getMessage() for r in caplog.records if "unissued=" in r.getMessage()]
+    assert "unissued=1" in line

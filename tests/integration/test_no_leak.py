@@ -12,9 +12,9 @@ import re
 import httpx
 import pytest
 
-from claude_pii_proxy.detection.gitleaks import SecretDetector
-from claude_pii_proxy.detection.presidio import PresidioDetector
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection.gitleaks import SecretDetector
+from llm_pii_proxy.detection.presidio import PresidioDetector
+from llm_pii_proxy.vault import Category
 from tests.conftest import FIXTURES
 from tests.integration.conftest import SESSION, sent
 

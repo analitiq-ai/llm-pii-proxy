@@ -5,7 +5,7 @@ import httpx
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from claude_pii_proxy.detection.chunking import DEFAULT_OVERLAP
+from llm_pii_proxy.detection.chunking import DEFAULT_OVERLAP
 
 # The secret detector must report exactly this; another gitleaks build may apply different rules.
 PINNED_GITLEAKS_VERSION = "v8.30.1"
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     min_score: float = Field(0.4, ge=0, le=1)
     session_idle_ttl_s: int = Field(43200, gt=0)
     secret_detector_path: Path = Path(".tools/gitleaks-sidecar")
-    lists_path: Path = Path("~/.config/claude-pii-proxy/lists.toml")
+    lists_path: Path = Path("~/.config/llm-pii-proxy/lists.toml")
     confidential_enabled: bool = False
     confidential_url: str = "http://127.0.0.1:8080"
     confidential_model: str = "gpt-oss-120b"

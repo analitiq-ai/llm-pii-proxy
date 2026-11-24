@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from claude_pii_proxy.detection import DetectedSpan, Stage
-from claude_pii_proxy.errors import ScrubFailed
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.scrub import Pipeline
-from claude_pii_proxy.sessions import SessionStore
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import DetectedSpan, Stage
+from llm_pii_proxy.errors import ScrubFailed
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.scrub import Pipeline
+from llm_pii_proxy.sessions import SessionStore
+from llm_pii_proxy.vault import Category
 
 
 class Clock:

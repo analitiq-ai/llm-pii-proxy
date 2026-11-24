@@ -1,7 +1,7 @@
 # Contract: Secret Detector Process
 
 A long-lived child process of the proxy that wraps the gitleaks Go library (research.md R7). Source:
-`sidecar/gitleaks/` (Go module, gitleaks pinned in `go.mod`). Rules: `src/claude_pii_proxy/detection/gitleaks.toml`,
+`sidecar/gitleaks/` (Go module, gitleaks pinned in `go.mod`). Rules: `src/llm_pii_proxy/detection/gitleaks.toml`,
 which extends gitleaks' default rules.
 
 ## Lifecycle

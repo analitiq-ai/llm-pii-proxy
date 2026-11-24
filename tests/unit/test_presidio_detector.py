@@ -3,13 +3,13 @@ from dataclasses import dataclass
 
 import pytest
 
-from claude_pii_proxy.detection import Stage, trim_span
-from claude_pii_proxy.detection.presidio import (
+from llm_pii_proxy.detection import Stage, trim_span
+from llm_pii_proxy.detection.presidio import (
     ENTITY_CATEGORIES,
     NER_CHUNK_CHARS,
     PresidioDetector,
 )
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 from tests.conftest import FIXTURES
 
 

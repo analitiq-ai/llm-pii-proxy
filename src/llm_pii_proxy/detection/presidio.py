@@ -11,9 +11,9 @@ from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_analyzer.predefined_recognizers import CreditCardRecognizer
 from spacy.util import compile_infix_regex
 
-from claude_pii_proxy.detection import DetectedSpan, Stage, addresses
-from claude_pii_proxy.detection.chunking import chunk
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import DetectedSpan, Stage, addresses
+from llm_pii_proxy.detection.chunking import chunk
+from llm_pii_proxy.vault import Category
 
 ENTITY_CATEGORIES: dict[str, Category] = {
     "PERSON": Category.PERSON,

@@ -9,12 +9,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from claude_pii_proxy.config import PINNED_GITLEAKS_VERSION
-from claude_pii_proxy.detection import DetectedSpan, Stage
-from claude_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.config import PINNED_GITLEAKS_VERSION
+from llm_pii_proxy.detection import DetectedSpan, Stage
+from llm_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
+from llm_pii_proxy.vault import Category
 
-RULES_PATH = Path(str(files("claude_pii_proxy.detection").joinpath("gitleaks.toml")))
+RULES_PATH = Path(str(files("llm_pii_proxy.detection").joinpath("gitleaks.toml")))
 
 _STREAM_LIMIT = 64 * 1024 * 1024  # matches the detector's stdin line limit
 _ENCODING_RUN = re.compile(r"[A-Za-z0-9+/=_%-]+")

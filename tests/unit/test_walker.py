@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from claude_pii_proxy.walker import apply_leaves, collect_leaves
+from llm_pii_proxy.walker import apply_leaves, collect_leaves
 
 
 def upper_all(body):

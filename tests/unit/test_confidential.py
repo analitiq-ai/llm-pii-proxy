@@ -7,13 +7,13 @@ import httpx
 import pytest
 import respx
 
-from claude_pii_proxy.detection import Stage
-from claude_pii_proxy.detection.chunking import chunk
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
-from claude_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.scrub import Pipeline
-from claude_pii_proxy.vault import Category, Vault
+from llm_pii_proxy.detection import Stage
+from llm_pii_proxy.detection.chunking import chunk
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.scrub import Pipeline
+from llm_pii_proxy.vault import Category, Vault
 from tests.conftest import RegexDetector
 
 PRIVATEMODE = "http://privatemode.test"

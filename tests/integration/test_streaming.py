@@ -4,7 +4,7 @@ import json
 
 import httpx
 
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 from tests.integration.conftest import SESSION
 
 

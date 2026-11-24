@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-from claude_pii_proxy.vault import TOKEN_PATTERN, Vault
+from llm_pii_proxy.vault import TOKEN_PATTERN, Vault
 
 Escape = Callable[[str], str]
 

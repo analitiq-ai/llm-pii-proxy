@@ -1,5 +1,5 @@
 [project]
-name = "claude-pii-proxy"
+name = "llm-pii-proxy"
 version = "0.1.0"
 description = "Local proxy for Claude Code that pseudonymizes PII in outbound requests and restores it in responses."
 readme = "README.md"

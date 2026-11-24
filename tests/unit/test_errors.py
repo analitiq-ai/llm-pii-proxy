@@ -1,6 +1,6 @@
 import pytest
 
-from claude_pii_proxy import errors
+from llm_pii_proxy import errors
 
 # Rows of the "Proxy-originated errors" table in contracts/http-interface.md.
 TABLE = [

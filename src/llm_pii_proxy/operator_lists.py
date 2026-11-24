@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 
 _NOT_SCRUBBABLE_BY_OPERATOR = {Category.LITERAL, Category.CONTEXT}
 # Claude Code's own vocabulary, which NER tags as PERSON. Anthropic rejects subscription traffic

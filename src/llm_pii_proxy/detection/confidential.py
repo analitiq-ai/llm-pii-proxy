@@ -12,10 +12,10 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from claude_pii_proxy.detection import DetectedSpan, Stage
-from claude_pii_proxy.detection.chunking import Chunk, chunk
-from claude_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable, ProxyError
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import DetectedSpan, Stage
+from llm_pii_proxy.detection.chunking import Chunk, chunk
+from llm_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable, ProxyError
+from llm_pii_proxy.vault import Category
 
 SYSTEM_PROMPT = (
     "You find personal data in the user's text: names, nicknames, online handles, and "

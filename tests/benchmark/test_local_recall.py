@@ -10,10 +10,10 @@ from collections import Counter
 
 import pytest
 
-from claude_pii_proxy.detection import resolve_overlaps, trim_span
-from claude_pii_proxy.detection.gitleaks import SecretDetector
-from claude_pii_proxy.detection.presidio import PresidioDetector
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import resolve_overlaps, trim_span
+from llm_pii_proxy.detection.gitleaks import SecretDetector
+from llm_pii_proxy.detection.presidio import PresidioDetector
+from llm_pii_proxy.vault import Category
 from tests.conftest import FIXTURES
 
 pytestmark = pytest.mark.benchmark

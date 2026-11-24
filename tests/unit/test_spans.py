@@ -1,7 +1,7 @@
 import pytest
 
-from claude_pii_proxy.detection import DetectedSpan, Stage, resolve_overlaps, trim_span
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import DetectedSpan, Stage, resolve_overlaps, trim_span
+from llm_pii_proxy.vault import Category
 
 P = Category.PERSON
 

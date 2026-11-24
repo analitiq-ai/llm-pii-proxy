@@ -6,10 +6,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from claude_pii_proxy.detection import DetectedSpan, Detector, Stage, resolve_overlaps, trim_span
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.vault import TOKEN_PATTERN, Category, Vault
+from llm_pii_proxy.detection import DetectedSpan, Detector, Stage, resolve_overlaps, trim_span
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.vault import TOKEN_PATTERN, Category, Vault
 
 # Per-leaf outcome: the scrubbed text, or why the leaf failed (its request then fails closed).
 LeafResult = str | Exception

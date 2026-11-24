@@ -1,11 +1,11 @@
-# claude-pii-proxy
+# llm-pii-proxy
 
 A local HTTP proxy between Claude Code and the Anthropic API. It swaps PII in outbound requests for
 stable placeholders and puts the original values back in responses, so the PII never leaves the machine
 and Claude can still work on files that contain it.
 
 ```
-Claude Code ──ANTHROPIC_BASE_URL──▶ claude-pii-proxy ──▶ api.anthropic.com
+Claude Code ──ANTHROPIC_BASE_URL──▶ llm-pii-proxy ──▶ api.anthropic.com
             ◀── restored values ───                  ◀── placeholders ──
 ```
 
@@ -34,7 +34,7 @@ uv sync                               # the spaCy NER model (en_core_web_lg) is 
 scripts/build-secret-detector.sh      # builds .tools/gitleaks-sidecar with a pinned Go toolchain
 ```
 
-Optionally, list values that must always or never be scrubbed in `~/.config/claude-pii-proxy/lists.toml`
+Optionally, list values that must always or never be scrubbed in `~/.config/llm-pii-proxy/lists.toml`
 (keep it outside any repository):
 
 ```toml
@@ -48,7 +48,7 @@ EMAIL = ["<your git email>"]
 ## Usage
 
 ```bash
-uv run python -m claude_pii_proxy     # listens on 127.0.0.1:8787
+uv run python -m llm_pii_proxy     # listens on 127.0.0.1:8787
 ```
 
 In another shell:

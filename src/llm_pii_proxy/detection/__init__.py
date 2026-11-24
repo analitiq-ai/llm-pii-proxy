@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 
 
 class Stage(StrEnum):

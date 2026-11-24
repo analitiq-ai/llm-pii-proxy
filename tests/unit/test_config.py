@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from claude_pii_proxy.config import PINNED_GITLEAKS_VERSION, Settings
+from llm_pii_proxy.config import PINNED_GITLEAKS_VERSION, Settings
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +23,7 @@ def test_defaults_match_quickstart_table():
     assert s.min_score == 0.4
     assert s.session_idle_ttl_s == 43200
     assert s.secret_detector_path == Path.cwd() / ".tools/gitleaks-sidecar"
-    assert s.lists_path == Path("~/.config/claude-pii-proxy/lists.toml").expanduser()
+    assert s.lists_path == Path("~/.config/llm-pii-proxy/lists.toml").expanduser()
     assert s.confidential_enabled is False
     assert s.confidential_url == "http://127.0.0.1:8080"
     assert s.confidential_model == "gpt-oss-120b"

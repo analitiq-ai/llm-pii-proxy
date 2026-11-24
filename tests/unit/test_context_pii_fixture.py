@@ -2,7 +2,7 @@
 
 import json
 
-from claude_pii_proxy.detection.presidio import PresidioDetector
+from llm_pii_proxy.detection.presidio import PresidioDetector
 from tests.conftest import FIXTURES
 
 EXAMPLES = [

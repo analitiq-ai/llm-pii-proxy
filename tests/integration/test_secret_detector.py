@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from claude_pii_proxy.config import PINNED_GITLEAKS_VERSION
-from claude_pii_proxy.detection import DetectedSpan
-from claude_pii_proxy.detection.gitleaks import (
+from llm_pii_proxy.config import PINNED_GITLEAKS_VERSION
+from llm_pii_proxy.detection import DetectedSpan
+from llm_pii_proxy.detection.gitleaks import (
     Finding,
     SecretDetector,
     SecretDetectorStartupError,
     findings_to_spans,
 )
-from claude_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
+from llm_pii_proxy.vault import Category
 from tests.conftest import REPO_ROOT as REPO
 
 # Concatenated so the repository itself never holds a provider-format key.

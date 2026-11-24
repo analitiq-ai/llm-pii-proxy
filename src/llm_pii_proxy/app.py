@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.types import Lifespan
 
-from claude_pii_proxy.errors import (
+from llm_pii_proxy.errors import (
     BadRequest,
     ProxyError,
     RouteNotFound,
@@ -22,15 +22,15 @@ from claude_pii_proxy.errors import (
     UnsupportedEncoding,
     UpstreamUnavailable,
 )
-from claude_pii_proxy.notice import with_notice
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.restore import restore_message
-from claude_pii_proxy.scrub import Pipeline
-from claude_pii_proxy.sessions import Session, SessionStore
-from claude_pii_proxy.sse import restore_stream
-from claude_pii_proxy.walker import apply_leaves, collect_leaves
+from llm_pii_proxy.notice import with_notice
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.restore import restore_message
+from llm_pii_proxy.scrub import Pipeline
+from llm_pii_proxy.sessions import Session, SessionStore
+from llm_pii_proxy.sse import restore_stream
+from llm_pii_proxy.walker import apply_leaves, collect_leaves
 
-log = logging.getLogger("claude_pii_proxy")
+log = logging.getLogger("llm_pii_proxy")
 
 SESSION_HEADER = "x-claude-code-session-id"
 SCRUB_HEADER = "x-pii-proxy-scrubbed"

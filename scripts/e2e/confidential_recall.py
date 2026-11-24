@@ -22,14 +22,14 @@ from pathlib import Path
 
 import httpx
 
-from claude_pii_proxy.config import Settings
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
-from claude_pii_proxy.detection.gitleaks import SecretDetector
-from claude_pii_proxy.detection.presidio import PresidioDetector, build_engine
-from claude_pii_proxy.errors import ConfidentialUnavailable
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.scrub import LeafResult, Pipeline
-from claude_pii_proxy.vault import Vault
+from llm_pii_proxy.config import Settings
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.detection.gitleaks import SecretDetector
+from llm_pii_proxy.detection.presidio import PresidioDetector, build_engine
+from llm_pii_proxy.errors import ConfidentialUnavailable
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.scrub import LeafResult, Pipeline
+from llm_pii_proxy.vault import Vault
 from tests.fixtures.filler import stdlib_code, stdlib_prose
 
 EXAMPLES = Path(__file__).parents[2] / "tests" / "fixtures" / "context-pii" / "examples.jsonl"

@@ -1,6 +1,6 @@
-from claude_pii_proxy.detection import Stage
-from claude_pii_proxy.report import ScrubReport, SessionTotals
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import Stage
+from llm_pii_proxy.report import ScrubReport, SessionTotals
+from llm_pii_proxy.vault import Category
 
 
 def test_header_sorted_by_category_and_summed_over_stages():

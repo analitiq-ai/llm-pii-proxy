@@ -60,7 +60,7 @@ def test_example_follows_a_context_leaf_of_the_given_size():
 
 
 async def test_unavailable_answer_is_retried_after_a_wait():
-    from claude_pii_proxy.errors import ConfidentialUnavailable
+    from llm_pii_proxy.errors import ConfidentialUnavailable
 
     outcomes = [ConfidentialUnavailable("HTTP 429"), ConfidentialUnavailable("HTTP 429"), "ok"]
     waits = []
@@ -76,7 +76,7 @@ async def test_unavailable_answer_is_retried_after_a_wait():
 
 
 async def test_gives_up_with_the_last_failure():
-    from claude_pii_proxy.errors import ConfidentialUnavailable
+    from llm_pii_proxy.errors import ConfidentialUnavailable
 
     async def scrub():
         return ConfidentialUnavailable("HTTP 429")

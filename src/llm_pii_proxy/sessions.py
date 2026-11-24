@@ -5,10 +5,10 @@ import hashlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 
-from claude_pii_proxy.errors import ScrubFailed
-from claude_pii_proxy.report import ScrubReport, SessionTotals
-from claude_pii_proxy.scrub import LeafResult, Pipeline
-from claude_pii_proxy.vault import Category, Vault
+from llm_pii_proxy.errors import ScrubFailed
+from llm_pii_proxy.report import ScrubReport, SessionTotals
+from llm_pii_proxy.scrub import LeafResult, Pipeline
+from llm_pii_proxy.vault import Category, Vault
 
 
 class Session:

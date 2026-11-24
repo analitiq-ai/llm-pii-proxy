@@ -5,7 +5,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from enum import StrEnum
 from typing import Self
 
-from claude_pii_proxy.errors import ScrubFailed
+from llm_pii_proxy.errors import ScrubFailed
 
 
 class Category(StrEnum):

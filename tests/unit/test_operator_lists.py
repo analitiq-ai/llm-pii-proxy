@@ -1,12 +1,12 @@
 import pytest
 
-from claude_pii_proxy.operator_lists import (
+from llm_pii_proxy.operator_lists import (
     BUILT_IN_NEVER_SCRUB,
     OperatorLists,
     OperatorListsError,
     load,
 )
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 
 
 def write(tmp_path, body):

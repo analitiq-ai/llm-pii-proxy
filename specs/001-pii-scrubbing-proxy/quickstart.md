@@ -23,7 +23,7 @@ A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.m
 | `PII_PROXY_MIN_SCORE` | `0.4` | Presidio score threshold |
 | `PII_PROXY_SESSION_IDLE_TTL_S` | `43200` | whole-session eviction |
 | `PII_PROXY_SECRET_DETECTOR_PATH` | `.tools/gitleaks-sidecar` | |
-| `PII_PROXY_LISTS_PATH` | `~/.config/claude-pii-proxy/lists.toml` | operator lists (FR-018). Absent file means empty lists; an invalid file fails startup |
+| `PII_PROXY_LISTS_PATH` | `~/.config/llm-pii-proxy/lists.toml` | operator lists (FR-018). Absent file means empty lists; an invalid file fails startup |
 | `PII_PROXY_CONFIDENTIAL_ENABLED` | `false` | Story 2 switch (FR-015) |
 | `PII_PROXY_CONFIDENTIAL_URL` | `http://127.0.0.1:8080` | Privatemode proxy |
 | `PII_PROXY_CONFIDENTIAL_MODEL` | `gpt-oss-120b` | |
@@ -46,7 +46,7 @@ EMAIL = ["<your git email>"]
 ## Run
 
 ```bash
-uv run python -m claude_pii_proxy
+uv run python -m llm_pii_proxy
 ```
 
 In another shell:

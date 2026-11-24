@@ -10,9 +10,9 @@ from typing import Any
 
 from httpx_sse import ServerSentEvent
 
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.restore import Escape, HoldbackRestorer, json_escape, raw
-from claude_pii_proxy.vault import Vault
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.restore import Escape, HoldbackRestorer, json_escape, raw
+from llm_pii_proxy.vault import Vault
 
 # delta type -> (field holding the streamed string, how a restored value is inserted)
 _RESTORED_DELTAS: dict[str, tuple[str, Escape]] = {

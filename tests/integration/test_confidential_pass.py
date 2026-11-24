@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
 from tests.integration.conftest import SESSION, message_response, sent
 
 PRIVATEMODE = "http://privatemode.test"

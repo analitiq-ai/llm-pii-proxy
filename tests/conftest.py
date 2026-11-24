@@ -6,15 +6,15 @@ import httpx
 import pytest
 import respx
 
-from claude_pii_proxy.app import create_app
-from claude_pii_proxy.config import Settings
-from claude_pii_proxy.detection import DetectedSpan, Detector, Stage
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
-from claude_pii_proxy.detection.presidio import build_engine
-from claude_pii_proxy.operator_lists import OperatorLists
-from claude_pii_proxy.scrub import Pipeline
-from claude_pii_proxy.sessions import SessionStore
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.app import create_app
+from llm_pii_proxy.config import Settings
+from llm_pii_proxy.detection import DetectedSpan, Detector, Stage
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.detection.presidio import build_engine
+from llm_pii_proxy.operator_lists import OperatorLists
+from llm_pii_proxy.scrub import Pipeline
+from llm_pii_proxy.sessions import SessionStore
+from llm_pii_proxy.vault import Category
 
 UPSTREAM = "https://upstream.test"
 REPO_ROOT = Path(__file__).resolve().parent.parent

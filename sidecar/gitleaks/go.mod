@@ -1,4 +1,4 @@
-module github.com/analitiq-ai/claude-pii-proxy/sidecar/gitleaks
+module github.com/analitiq-ai/llm-pii-proxy/sidecar/gitleaks
 
 go 1.27
 

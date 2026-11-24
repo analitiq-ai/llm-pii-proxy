@@ -222,53 +222,6 @@ wheels = [
 ]
 
 [[package]]
-name = "claude-pii-proxy"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "en-core-web-lg" },
-    { name = "httpx" },
-    { name = "httpx-sse" },
-    { name = "presidio-analyzer" },
-    { name = "pydantic-settings" },
-    { name = "starlette" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "faker" },
-    { name = "hypothesis" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pyyaml" },
-    { name = "respx" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "en-core-web-lg", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "httpx-sse", specifier = ">=0.4.3" },
-    { name = "presidio-analyzer", specifier = ">=2.2.366" },
-    { name = "pydantic-settings", specifier = ">=2.16.3" },
-    { name = "starlette", specifier = ">=1.10.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "faker", specifier = ">=40.63.0" },
-    { name = "hypothesis", specifier = ">=6.170.17" },
-    { name = "pytest", specifier = ">=9.2.0" },
-    { name = "pytest-asyncio", specifier = ">=1.5.0" },
-    { name = "pyyaml", specifier = ">=6.0.4" },
-    { name = "respx", specifier = ">=0.23.1" },
-    { name = "ruff", specifier = ">=0.17.6" },
-]
-
-[[package]]
 name = "click"
 version = "8.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -597,6 +550,53 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
+]
+
+[[package]]
+name = "llm-pii-proxy"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "en-core-web-lg" },
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "presidio-analyzer" },
+    { name = "pydantic-settings" },
+    { name = "starlette" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "faker" },
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pyyaml" },
+    { name = "respx" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "en-core-web-lg", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "httpx-sse", specifier = ">=0.4.3" },
+    { name = "presidio-analyzer", specifier = ">=2.2.366" },
+    { name = "pydantic-settings", specifier = ">=2.16.3" },
+    { name = "starlette", specifier = ">=1.10.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "faker", specifier = ">=40.63.0" },
+    { name = "hypothesis", specifier = ">=6.170.17" },
+    { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pytest-asyncio", specifier = ">=1.5.0" },
+    { name = "pyyaml", specifier = ">=6.0.4" },
+    { name = "respx", specifier = ">=0.23.1" },
+    { name = "ruff", specifier = ">=0.17.6" },
 ]
 
 [[package]]

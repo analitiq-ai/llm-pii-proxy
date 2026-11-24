@@ -1,4 +1,4 @@
-"""Entry point: `python -m claude_pii_proxy`."""
+"""Entry point: `python -m llm_pii_proxy`."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -9,14 +9,14 @@ import uvicorn
 from presidio_analyzer import AnalyzerEngine
 from starlette.applications import Starlette
 
-from claude_pii_proxy import operator_lists
-from claude_pii_proxy.app import create_app
-from claude_pii_proxy.config import Settings
-from claude_pii_proxy.detection.confidential import ConfidentialDetector
-from claude_pii_proxy.detection.gitleaks import SecretDetector
-from claude_pii_proxy.detection.presidio import PresidioDetector, build_engine
-from claude_pii_proxy.scrub import Pipeline
-from claude_pii_proxy.sessions import SessionStore
+from llm_pii_proxy import operator_lists
+from llm_pii_proxy.app import create_app
+from llm_pii_proxy.config import Settings
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
+from llm_pii_proxy.detection.gitleaks import SecretDetector
+from llm_pii_proxy.detection.presidio import PresidioDetector, build_engine
+from llm_pii_proxy.scrub import Pipeline
+from llm_pii_proxy.sessions import SessionStore
 
 # Connect fails fast; read is long because a streamed answer can pause while the model thinks.
 UPSTREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=600.0, write=60.0, pool=10.0)

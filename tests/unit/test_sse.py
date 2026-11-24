@@ -4,9 +4,9 @@ import json
 
 from httpx_sse import ServerSentEvent
 
-from claude_pii_proxy.report import ScrubReport
-from claude_pii_proxy.sse import restore_stream
-from claude_pii_proxy.vault import Category, Vault
+from llm_pii_proxy.report import ScrubReport
+from llm_pii_proxy.sse import restore_stream
+from llm_pii_proxy.vault import Category, Vault
 
 
 def ev(name: str, data: dict | str) -> ServerSentEvent:

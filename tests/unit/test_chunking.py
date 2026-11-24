@@ -2,7 +2,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from claude_pii_proxy.detection.chunking import chunk
+from llm_pii_proxy.detection.chunking import chunk
 
 
 def covered(text, chunks):

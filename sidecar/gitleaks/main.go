@@ -1,4 +1,4 @@
-// Secret detector process for claude-pii-proxy (specs/001-pii-scrubbing-proxy/contracts/secret-detector.md).
+// Secret detector process for llm-pii-proxy (specs/001-pii-scrubbing-proxy/contracts/secret-detector.md).
 //
 // The rules load once; a fresh process per request would cost ~0.5 s each (research R7).
 // Requests are JSON lines on stdin, one JSON line of findings per request on stdout.

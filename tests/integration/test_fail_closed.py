@@ -3,8 +3,8 @@
 import httpx
 import pytest
 
-from claude_pii_proxy.errors import SecretDetectorUnavailable
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.errors import SecretDetectorUnavailable
+from llm_pii_proxy.vault import Category
 from tests.integration.conftest import SESSION
 
 CONTENT = "Margaret Ellsworth, margaret@brightwater.example, SECRET-ZQ81"

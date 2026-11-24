@@ -6,9 +6,9 @@ import logging
 
 import httpx
 
-from claude_pii_proxy.detection import DetectedSpan, Stage
-from claude_pii_proxy.notice import NOTICE
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import DetectedSpan, Stage
+from llm_pii_proxy.notice import NOTICE
+from llm_pii_proxy.vault import Category
 from tests.integration.conftest import SESSION, message_response, sent
 
 SYSTEM = [{"type": "text", "text": "You are Claude Code. Owner: ann@corp.example"}]

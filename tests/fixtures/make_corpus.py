@@ -17,7 +17,7 @@ from pathlib import Path
 
 from faker import Faker
 
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.vault import Category
 
 OUT = Path(__file__).parent / "corpus" / "local.jsonl"
 SEED = 20261123

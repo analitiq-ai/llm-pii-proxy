@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from claude_pii_proxy.errors import BadRequest
+from llm_pii_proxy.errors import BadRequest
 
 # Without this, Claude refused value-dependent tasks in spike R0; with it, refusals stopped (R0b).
 # Constant, so it never changes the bytes of re-sent history. It gives no advice on taking part of

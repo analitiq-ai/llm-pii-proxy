@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-from claude_pii_proxy.__main__ import build_app
-from claude_pii_proxy.detection.gitleaks import SecretDetectorStartupError
-from claude_pii_proxy.operator_lists import OperatorListsError
+from llm_pii_proxy.__main__ import build_app
+from llm_pii_proxy.detection.gitleaks import SecretDetectorStartupError
+from llm_pii_proxy.operator_lists import OperatorListsError
 from tests.conftest import UPSTREAM
 from tests.integration.conftest import SESSION, message_response, sent
 

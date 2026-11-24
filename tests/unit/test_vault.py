@@ -1,7 +1,7 @@
 import pytest
 
-from claude_pii_proxy.errors import ScrubFailed
-from claude_pii_proxy.vault import TOKEN_PATTERN, Category, Vault, format_token
+from llm_pii_proxy.errors import ScrubFailed
+from llm_pii_proxy.vault import TOKEN_PATTERN, Category, Vault, format_token
 
 
 def test_category_enum_is_closed():

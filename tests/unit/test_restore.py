@@ -5,7 +5,7 @@ import json
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from claude_pii_proxy.restore import (
+from llm_pii_proxy.restore import (
     MAX_HOLDBACK,
     HoldbackRestorer,
     json_escape,
@@ -13,7 +13,7 @@ from claude_pii_proxy.restore import (
     restore_message,
     restore_text,
 )
-from claude_pii_proxy.vault import Category, Vault
+from llm_pii_proxy.vault import Category, Vault
 
 
 def make_vault() -> Vault:

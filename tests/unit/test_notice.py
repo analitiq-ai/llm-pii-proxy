@@ -4,9 +4,9 @@ import copy
 
 import pytest
 
-from claude_pii_proxy.errors import BadRequest
-from claude_pii_proxy.notice import NOTICE, with_notice
-from claude_pii_proxy.vault import TOKEN_PATTERN
+from llm_pii_proxy.errors import BadRequest
+from llm_pii_proxy.notice import NOTICE, with_notice
+from llm_pii_proxy.vault import TOKEN_PATTERN
 
 
 def test_block_list_gets_one_text_block_appended_last():

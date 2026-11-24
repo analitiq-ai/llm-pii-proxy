@@ -111,7 +111,7 @@ specs/001-pii-scrubbing-proxy/
 ### Source Code (repository root)
 
 ```text
-src/claude_pii_proxy/
+src/llm_pii_proxy/
 ├── __main__.py          # load Settings and operator lists, start the secret detector, run uvicorn
 ├── config.py            # Settings (pydantic-settings); loopback-only validation; pinned gitleaks version
 ├── errors.py            # ProxyError types -> status, Anthropic error body (http-interface.md error table)

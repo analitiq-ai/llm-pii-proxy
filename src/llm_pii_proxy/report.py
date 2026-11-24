@@ -4,8 +4,8 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from claude_pii_proxy.detection import Stage
-from claude_pii_proxy.vault import Category
+from llm_pii_proxy.detection import Stage
+from llm_pii_proxy.vault import Category
 
 
 def _render(by_category: Mapping[Category, int]) -> str:

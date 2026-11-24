@@ -1,5 +1,5 @@
 [project]
-name = "claude-pii-proxy"
+name = "llm-pii-proxy"
 version = "0.1.0"
 description = "Local proxy for Claude Code that pseudonymizes PII in outbound requests and restores it in responses."
 readme = "README.md"
@@ -9,9 +9,11 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "en-core-web-lg",
-    "fastapi>=0.165.0",
     "httpx>=0.28.1",
+    "httpx-sse>=0.4.3",
     "presidio-analyzer>=2.2.366",
+    "pydantic-settings>=2.16.3",
+    "starlette>=1.10.0",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -21,8 +23,11 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "faker>=40.63.0",
+    "hypothesis>=6.170.17",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
+    "pyyaml>=6.0.4",
     "respx>=0.23.1",
     "ruff>=0.17.6",
 ]
@@ -31,6 +36,10 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not benchmark'"
+markers = [
+    "benchmark: detection recall and latency suites (run with -m benchmark)",
+]
 
 [tool.ruff]
 line-length = 100

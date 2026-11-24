@@ -7,3 +7,5 @@ dist/
 .env
 .claude/settings.local.json
 .specify/extensions/.cache/
+.tools/
+!tests/fixtures/pii-project/.env

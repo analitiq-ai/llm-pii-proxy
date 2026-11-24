@@ -1,0 +1,187 @@
+# SC-002 / SC-008 task set over tests/fixtures/pii-project/. Pass checks are fixed before any run.
+#
+# Per task:
+#   prompt   what Claude Code is asked, in a fresh copy of the fixture project
+#   answer   substrings that must all appear in Claude's final answer
+#   files    exact contents expected afterwards; every other fixture file must be unchanged
+#   changes  planted values the task means to remove or alter. Every other planted value must occur
+#            at least as often in each file afterwards as before (SC-002: byte-identical, never mangled)
+#
+# Excluded by design (spec Assumptions): tasks that need to see a literal value or operate on part of one,
+# such as "which customers share an email domain", "the first 8 characters of the token" or "sort the rows
+# by name" (placeholders carry no order).
+
+tasks:
+  - id: count-customers
+    prompt: How many customers are in customers.csv? Answer with the number only.
+    answer: ["2"]
+
+  - id: maintainer-email
+    prompt: Who is the maintainer in CLAUDE.md, and what is their email? Quote both exactly.
+    answer: ["Eleanor Vasquez-Hart", "eleanor.vasquez-hart@brightwaterdental.co.uk"]
+
+  - id: maintainer-phone
+    prompt: What is the maintainer's phone number in CLAUDE.md? Quote it exactly as written.
+    answer: ["+1 646-555-0199"]
+
+  - id: customer1-name-ip
+    prompt: Tell me customer 1's full name and IP address exactly as they appear in customers.csv.
+    answer: ["Margaret Ellsworth", "203.0.113.57"]
+
+  - id: customer2-email
+    prompt: What is customer 2's email address in customers.csv? Quote it exactly.
+    answer: ["t.quennell@harbourline-logistics.com"]
+
+  - id: customer2-iban
+    prompt: What is customer 2's IBAN in customers.csv? Quote it exactly.
+    answer: ["DE89370400440532013000"]
+
+  - id: customer1-card
+    prompt: What card number is on file for customer 1 in customers.csv? Quote it exactly as written.
+    answer: ["4539 1488 0343 6467"]
+
+  - id: who-has-ip
+    prompt: Which customer in customers.csv has the IP address 198.51.100.23? Give their full name.
+    answer: ["Tobias Quennell"]
+
+  - id: aws-key
+    prompt: What is the AWS access key ID in .env? Quote the value exactly.
+    answer: ["AKIAZ3MHN4QWRT6YB5UX"]
+
+  - id: db-password
+    prompt: What is DB_PASSWORD set to in .env? Quote the value exactly.
+    answer: ["Quillmere-Tr0ub4dor-58"]
+
+  - id: log-level-debug
+    prompt: In .env, change LOG_LEVEL to debug. Use the Edit tool and change nothing else.
+    files:
+      .env: |
+        LOG_LEVEL=debug
+        AWS_ACCESS_KEY_ID=AKIAZ3MHN4QWRT6YB5UX
+        GITHUB_TOKEN=ghp_Wq7Lm2Xc9Vb4Nk8Jh3Gf6Ds1Pa5Zy0TrEu2i
+        DB_PASSWORD=Quillmere-Tr0ub4dor-58
+        DATABASE_URL=postgres://app:Zq8vR2mLpX@db.internal:5432/billing
+
+  - id: rename-db-password
+    prompt: In .env, rename the key DB_PASSWORD to DATABASE_PASSWORD and keep its value. Change nothing else.
+    files:
+      .env: |
+        LOG_LEVEL=info
+        AWS_ACCESS_KEY_ID=AKIAZ3MHN4QWRT6YB5UX
+        GITHUB_TOKEN=ghp_Wq7Lm2Xc9Vb4Nk8Jh3Gf6Ds1Pa5Zy0TrEu2i
+        DATABASE_PASSWORD=Quillmere-Tr0ub4dor-58
+        DATABASE_URL=postgres://app:Zq8vR2mLpX@db.internal:5432/billing
+
+  - id: move-database-url
+    prompt: In .env, move the DATABASE_URL line to the top of the file. Keep every line otherwise identical.
+    files:
+      .env: |
+        DATABASE_URL=postgres://app:Zq8vR2mLpX@db.internal:5432/billing
+        LOG_LEVEL=info
+        AWS_ACCESS_KEY_ID=AKIAZ3MHN4QWRT6YB5UX
+        GITHUB_TOKEN=ghp_Wq7Lm2Xc9Vb4Nk8Jh3Gf6Ds1Pa5Zy0TrEu2i
+        DB_PASSWORD=Quillmere-Tr0ub4dor-58
+
+  - id: redact-github-token
+    prompt: In .env, replace the GITHUB_TOKEN value with the literal text REDACTED. Change nothing else.
+    changes: ["ghp_Wq7Lm2Xc9Vb4Nk8Jh3Gf6Ds1Pa5Zy0TrEu2i"]
+    files:
+      .env: |
+        LOG_LEVEL=info
+        AWS_ACCESS_KEY_ID=AKIAZ3MHN4QWRT6YB5UX
+        GITHUB_TOKEN=REDACTED
+        DB_PASSWORD=Quillmere-Tr0ub4dor-58
+        DATABASE_URL=postgres://app:Zq8vR2mLpX@db.internal:5432/billing
+
+  - id: alert-email
+    prompt: >-
+      Append a line ALERT_EMAIL=<email> to the end of .env, where <email> is the maintainer's email from
+      CLAUDE.md. Change nothing else.
+    files:
+      .env: |
+        LOG_LEVEL=info
+        AWS_ACCESS_KEY_ID=AKIAZ3MHN4QWRT6YB5UX
+        GITHUB_TOKEN=ghp_Wq7Lm2Xc9Vb4Nk8Jh3Gf6Ds1Pa5Zy0TrEu2i
+        DB_PASSWORD=Quillmere-Tr0ub4dor-58
+        DATABASE_URL=postgres://app:Zq8vR2mLpX@db.internal:5432/billing
+        ALERT_EMAIL=eleanor.vasquez-hart@brightwaterdental.co.uk
+
+  - id: new-row-copied-values
+    prompt: >-
+      Append a third row to customers.csv: id 3, name Test User, customer 1's email, customer 2's phone, and
+      customer 1's iban, card, ssn and ip. Copy the values exactly. Change nothing else.
+    files:
+      customers.csv: |
+        id,name,email,phone,iban,card,ssn,ip
+        1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0143,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
+        2,Tobias Quennell,t.quennell@harbourline-logistics.com,+44 20 7946 0958,DE89370400440532013000,5425 2334 3010 9903,412-67-9035,198.51.100.23
+        3,Test User,margaret.ellsworth@brightwaterdental.co.uk,+44 20 7946 0958,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
+
+  - id: add-status-column
+    prompt: >-
+      Add a last column named status to customers.csv, with the value active for every customer. Change
+      nothing else.
+    files:
+      customers.csv: |
+        id,name,email,phone,iban,card,ssn,ip,status
+        1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0143,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57,active
+        2,Tobias Quennell,t.quennell@harbourline-logistics.com,+44 20 7946 0958,DE89370400440532013000,5425 2334 3010 9903,412-67-9035,198.51.100.23,active
+
+  - id: delete-customer2
+    prompt: Delete customer 2's row from customers.csv. Change nothing else.
+    changes:
+      - Tobias Quennell
+      - t.quennell@harbourline-logistics.com
+      - +44 20 7946 0958
+      - DE89370400440532013000
+      - 5425 2334 3010 9903
+      - 412-67-9035
+      - 198.51.100.23
+    files:
+      customers.csv: |
+        id,name,email,phone,iban,card,ssn,ip
+        1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0143,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
+
+  - id: change-customer1-phone
+    prompt: In customers.csv, change customer 1's phone to +1 212-555-0100. Change nothing else.
+    changes: ["+1 212-555-0143"]
+    files:
+      customers.csv: |
+        id,name,email,phone,iban,card,ssn,ip
+        1,Margaret Ellsworth,margaret.ellsworth@brightwaterdental.co.uk,+1 212-555-0100,GB82WEST12345698765432,4539 1488 0343 6467,536-22-1847,203.0.113.57
+        2,Tobias Quennell,t.quennell@harbourline-logistics.com,+44 20 7946 0958,DE89370400440532013000,5425 2334 3010 9903,412-67-9035,198.51.100.23
+
+  - id: backup-maintainer
+    prompt: >-
+      In CLAUDE.md, add a line directly under the Maintainer line, in the form
+      "Backup maintainer: <name> (<email>)." using customer 2's name and email from customers.csv. Change
+      nothing else.
+    files:
+      CLAUDE.md: |
+        # Brightwater billing tools
+
+        Maintainer: Eleanor Vasquez-Hart (eleanor.vasquez-hart@brightwaterdental.co.uk, +1 646-555-0199).
+        Backup maintainer: Tobias Quennell (t.quennell@harbourline-logistics.com).
+
+        Scripts read `customers.csv` and produce monthly invoices. Never commit `.env`.
+
+  - id: contacts-file
+    prompt: >-
+      Create contacts.txt with one line per customer in customers.csv, in id order, formatted as
+      "<name> <<email>>", and a trailing newline. Nothing else in the file.
+    files:
+      contacts.txt: |
+        Margaret Ellsworth <margaret.ellsworth@brightwaterdental.co.uk>
+        Tobias Quennell <t.quennell@harbourline-logistics.com>
+
+  - id: env-example
+    prompt: >-
+      Create .env.example with the same keys as .env, in the same order, each followed by = and an empty
+      value. Nothing else in the file.
+    files:
+      .env.example: |
+        LOG_LEVEL=
+        AWS_ACCESS_KEY_ID=
+        GITHUB_TOKEN=
+        DB_PASSWORD=
+        DATABASE_URL=

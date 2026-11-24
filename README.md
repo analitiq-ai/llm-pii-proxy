@@ -37,7 +37,8 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
   tasks that involve them.
 - **Mapping stays local.** It lives in memory only, per session, and is never logged. Each response carries
   an `x-pii-proxy-scrubbed` header with counts per category, never values.
-- **Loopback only.** The proxy refuses to listen on anything but `127.0.0.1` or `::1`.
+- **Loopback only.** The proxy listens only on a loopback IP address (`127.0.0.0/8` or `::1`). Host names,
+  `localhost` included, are rejected: a name can resolve to a non-loopback address.
 
 ## Install
 
@@ -57,11 +58,12 @@ Every step is a command; an agent can run them top to bottom. Linux or macOS, x8
    ```
 
 3. Optional but recommended: list your own identifiers. NER can't know that your OS username in
-   `/home/<user>/…` paths is a person. Keep the file outside any repository:
+   `/home/<user>/…` paths is a person. Keep the file outside any repository. This writes a template only
+   if the file doesn't exist yet:
 
    ```bash
    mkdir -p ~/.config/llm-pii-proxy
-   cat > ~/.config/llm-pii-proxy/lists.toml <<'EOF'
+   [ -e ~/.config/llm-pii-proxy/lists.toml ] || cat > ~/.config/llm-pii-proxy/lists.toml <<'EOF'
    never_scrub = []
 
    [always_scrub]
@@ -70,7 +72,8 @@ Every step is a command; an agent can run them top to bottom. Linux or macOS, x8
    EOF
    ```
 
-   An invalid file stops the proxy at startup; a missing file means empty lists.
+   Replace each `<…>` with the real value; an agent asks the user for them rather than guessing. An
+   invalid file stops the proxy at startup; a missing file means empty lists.
 
 4. Start the proxy from the repo root (it finds `.tools/gitleaks-sidecar` relative to it) and leave it
    running, in its own terminal or a `tmux` session:
@@ -129,23 +132,8 @@ If Privatemode is down or rate-limited, requests fail with `503` rather than ski
 
 ## Configuration
 
-Environment variables, all optional. Invalid values stop the proxy at startup.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `PII_PROXY_HOST` | `127.0.0.1` | Listen address; must be loopback |
-| `PII_PROXY_PORT` | `8787` | Listen port |
-| `PII_PROXY_UPSTREAM_URL` | `https://api.anthropic.com` | Where scrubbed requests go |
-| `PII_PROXY_MIN_SCORE` | `0.4` | Presidio confidence threshold |
-| `PII_PROXY_SESSION_IDLE_TTL_S` | `43200` | Idle time before a session's mapping is dropped |
-| `PII_PROXY_SECRET_DETECTOR_PATH` | `.tools/gitleaks-sidecar` | Built by `scripts/build-secret-detector.sh` |
-| `PII_PROXY_LISTS_PATH` | `~/.config/llm-pii-proxy/lists.toml` | Always/never-scrub lists |
-| `PII_PROXY_CONFIDENTIAL_ENABLED` | `false` | Turn on the confidential pass |
-| `PII_PROXY_CONFIDENTIAL_URL` | `http://127.0.0.1:8080` | Privatemode proxy |
-| `PII_PROXY_CONFIDENTIAL_MODEL` | `gpt-oss-120b` | Model for the pass |
-| `PII_PROXY_CONFIDENTIAL_TIMEOUT_S` | `30` | Per request |
-| `PII_PROXY_CONFIDENTIAL_CHUNK_CHARS` | `6000` | Text per request; larger chunks miss more |
-| `PII_PROXY_CONFIDENTIAL_CONCURRENCY` | `4` | Requests in flight |
+All settings are optional `PII_PROXY_*` environment variables; invalid values stop the proxy at startup. The
+full list with defaults is in [quickstart.md](specs/001-pii-scrubbing-proxy/quickstart.md#configuration-environment).
 
 ## Limits
 

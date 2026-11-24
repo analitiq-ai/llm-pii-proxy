@@ -100,6 +100,14 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
     conversation if requests are rejected.
   - Claude Code adds an attribution block as the first `system` block. Anthropic strips it only when it arrives
     unchanged. The quickstart sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` so the proxy never alters it.
+  - **Identity line (T062, 2026-11-24, Claude Code 2.1.331).** With a subscription login, Anthropic answers
+    429 "Server is temporarily limiting requests (not your usage limit)" when the first `system` block, "You
+    are a Claude agent, built on Anthropic's Claude Agent SDK.", arrives altered. spaCy tags "Claude" and
+    "Anthropic" as PERSON; every one of the 10 spans the local pass found in that run's system prompt was a
+    product name. Direct and recorder-only requests succeeded; the same request through the proxy with those
+    words never-scrubbed succeeded. **Decision (user)**: a built-in never-scrub list of Claude Code's vocabulary
+    (data-model.md, Operator lists), merged with the operator's. A bare first name "Claude" is then not
+    scrubbed; "Claude Dubois" still is, as never-scrub matches the whole span.
 - **Executed (R0).** A rewriting proxy (PrivAiTe) with deterministic local detection passed: 10 requests, up to
   7 replayed thinking blocks, no signature errors. Non-deterministic detection (the confidential pass) relies on
   the leaf cache and its single-flight rule, which the integration suite covers.

@@ -122,7 +122,7 @@ Loaded once at startup from `PII_PROXY_LISTS_PATH`. Shared by all sessions, read
 | Field | Type | Rule |
 |---|---|---|
 | `always_scrub` | map[Category → list[str]] | `LITERAL` and `CONTEXT` not allowed. Seeds each new vault |
-| `never_scrub` | list[str] | exact, case-sensitive. Drops matching detected spans (placeholder-format.md, stage 3) |
+| `never_scrub` | list[str] | exact, case-sensitive. Drops matching detected spans (placeholder-format.md, stage 3). Merged with the built-in list: `Claude`, `claude`, `Claude Code`, `Claude Agent SDK`, `Anthropic`, `Claude Opus`, `Claude Sonnet`, `Claude Haiku`, `Claude Fable` (research R3). An `always_scrub` value still wins: known values are matched before detection |
 
 A value on both lists, an empty string, or an unknown category fails startup.
 

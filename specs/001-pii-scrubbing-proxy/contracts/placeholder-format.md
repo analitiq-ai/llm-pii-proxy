@@ -40,8 +40,8 @@ Issuing a 10 000th placeholder in one category fails the leaf closed (FR-007).
    **Boundary rule**: an occurrence is replaced only if it isn't extended by a word character (`\w`) at an
    edge where the value itself is a word character. So `Al` is replaced in `Al,` and `(Al)` but not in `Alice`
    or `Al2O3`. Edges where the value is punctuation (`@`, `.`) have no constraint.
-3. **Detection last.** Detected spans whose exact text is on the operator's never-scrub list (FR-018) are
-   dropped. The rest get new placeholders.
+3. **Detection last.** Detected spans whose exact text is on the never-scrub list (FR-018: the operator's
+   list plus the built-in one in data-model.md) are dropped. The rest get new placeholders.
 
 ## Inbound (restoration)
 

@@ -161,7 +161,8 @@ the detection service only ever received text the local pass had already scrubbe
 - **FR-018**: The system MUST let the operator declare, in a local file that is never committed or sent
   anywhere, an **always-scrub** list (exact values always replaced, whether or not detection finds them, such
   as the developer's name, username, email and client names) and a **never-scrub** list (exact strings never
-  replaced, such as project terms detection wrongly flags).
+  replaced, such as project terms detection wrongly flags). A built-in never-scrub list of Claude Code's
+  own vocabulary (Claude, Anthropic, Claude model names) applies on top of the operator's.
 - **FR-019**: The system MUST tell the model, with the same fixed wording on every request, that placeholders
   stand in for real values that are restored on the way back, so it should use them verbatim wherever the real
   value is needed instead of refusing or asking for the value.

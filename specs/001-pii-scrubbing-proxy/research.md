@@ -382,7 +382,7 @@ Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator l
 | V2 | Pass. Summary showed the real values; `git diff` held exactly the requested changes; no planted value lost |
 | V5 | Pass. Over V10's 308 proxied requests, 93 replayed thinking blocks (up to 6); no signature errors |
 | V6 | Pass. `x-pii-proxy-scrubbed: CONTEXT=1,EMAIL=1`; log line holds counts only |
-| V7 | Partial. Mocked tests pass. Real session over 8 `context-pii` notes: 5/8 phrases replaced before Anthropic, 8/8 restored in the answer. Missed: "the regular we call the Professor", "the head of compliance at our … office", "the user whose dog appeared in last week's newsletter" |
+| V7 | Partial at the 24 000 chunk default; passes at 6 000 (see below). Mocked tests pass. Real session over 8 `context-pii` notes: 5/8 phrases replaced before Anthropic, 8/8 restored in the answer. Missed: "the regular we call the Professor", "the head of compliance at our … office", "the user whose dog appeared in last week's newsletter" |
 | V8 | Pass. Pass unreachable: `503`, `retry-after: 5`, cause named, no Anthropic request |
 | V9 | Pass. SC-003 recall at target (PERSON 87.9%, ADDRESS 94.6%, rest 100%); SC-004 typical 20 KB 299 ms; SC-005 recall script 28/32 (88%) |
 | V10 | Pass. Direct 67/69 (97.1%), proxy 66/69 (95.7%): ratio 98.5% (SC-008 ≥ 95%). 0 of 21 planted values and no username in 308 requests (SC-001); 0 non-200 |
@@ -422,6 +422,10 @@ Traffic to Anthropic was captured with `scripts/e2e/recorder.py`. The operator l
   gains nothing measurable. Per-leaf requests would not help: in V7 the notes were already their own leaf.
   **Decision (user, 2026-11-24)**: default chunk 6 000 characters. About 4× the requests on large new text
   (session start, big file reads); typical turns stay one chunk.
+- **With the 6 000 default shipped**: recall script, prose 20 000: 23/32 (72%). V7 re-run (real session,
+  captured): 6/8 phrases replaced before Anthropic (was 5/8), 8/8 restored, 0 watched values sent. Notes 4
+  ("the regular we call the Professor") and 6 ("the head of compliance at our … office") are the steady misses
+  across runs. V7 now meets SC-005; T062 closed.
 - **V10 failures**: proxy `sort-by-name-descending` 3/3. Claude sees only placeholders, said so, and left the
   file unchanged. This is the excluded class (spec Assumptions: tasks that need to see a literal value); the
   task should not have been in the set. Direct `delete-customer2` 2/3: missing trailing newline, model-side.

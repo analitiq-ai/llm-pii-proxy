@@ -35,7 +35,9 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Works with Claude Code's own features:** subscription (OAuth) and API-key logins, extended thinking
   across turns, prompt caching. Claude is told placeholders stand in for real values, so it doesn't refuse
   tasks that involve them.
-- **Mapping stays local.** It lives in memory only, per session, and is never logged. Each response carries
+- **Mapping stays local.** It lives in memory only, per session, and is never logged. Request and response
+  bodies are never logged either; only optional payload tracing (off by default) writes them, to local
+  trace files, and legs holding real values need a second opt-in. Each response carries
   an `x-pii-proxy-scrubbed` header with counts per category, never values.
 - **Loopback only.** The proxy listens only on a loopback IP address (`127.0.0.0/8` or `::1`). Host names,
   `localhost` included, are rejected: a name can resolve to a non-loopback address.

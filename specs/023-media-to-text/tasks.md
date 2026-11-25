@@ -51,7 +51,7 @@ task that makes it pass. Privatemode is mocked with `respx`; tests never call re
   not check for `pdftoppm`.
 - [x] T008 [US1] Wire conversion into `App._scrub` and the Privatemode client into `build_app`
   (`__main__.py`). T007 green.
-- [ ] T009 [US1] `scripts/e2e/media.py` (plan.md § Testing); run it by hand once for SC-001 and SC-002.
+- [x] T009 [US1] `scripts/e2e/media.py` (plan.md § Testing); run it by hand once for SC-001 and SC-002.
 - [x] T010 [US1] README: features, `pdftoppm` requirement; the five settings in
   `specs/001-pii-scrubbing-proxy/quickstart.md`.
 - [x] T011 Run `uv run pytest` and the lint command in CLAUDE.md; all green.

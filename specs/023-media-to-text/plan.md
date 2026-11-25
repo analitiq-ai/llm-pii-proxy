@@ -36,7 +36,7 @@ any conversion starts; the first failure refuses the request.
 | type other than `image` or `document` | `BadRequest` 400 naming its type |
 | source `url` or `file` | `BadRequest` 400: "image and PDF blocks given by URL or file id are not supported" |
 | media disabled | `BadRequest` 400 naming `PII_PROXY_MEDIA_ENABLED` (spec scenario 8) |
-| `media_type` missing or not a string; `data` missing, empty, not a string, or not valid base64 (`b64decode(validate=True)`, catching `binascii.Error`) | `BadRequest` 400 naming the block type and what is wrong, never the data |
+| `media_type` missing or not a string; `data` missing, empty, not a string, or not valid base64 (`b64decode(validate=True)`, catching `ValueError`: every error it raises for a str, the non-ASCII one included) | `BadRequest` 400 naming the block type and what is wrong, never the data |
 | media type other than those below | `BadRequest` 400 naming the media type |
 | `image`, media type `image/png`, `image/jpeg`, `image/gif`, `image/webp` | vision call; OCR call when `document` |
 | `document`, media type `application/pdf` | `pdftoppm -r 150 -png` into a temp dir (deleted after), one OCR call per page |

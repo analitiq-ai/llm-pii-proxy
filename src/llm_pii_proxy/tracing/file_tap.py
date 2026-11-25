@@ -19,6 +19,8 @@ _DIR_MODE = 0o700
 _FILE_MODE = 0o600
 # The session id comes from a request header: anything else is hashed before it names a file.
 _SAFE_SESSION_ID = re.compile(r"[A-Za-z0-9-]{1,128}")
+# "_" is outside the safe set and the hex alphabet: neither a session id nor its hash names it.
+_NO_SESSION_FILE = "_no-session.jsonl"
 _OPEN_FLAGS = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
 
 
@@ -74,8 +76,10 @@ class FileTap:
             raise OSError(f"{failed} trace file(s) could not be swept")
 
     def _path_for(self, session_id: str | None) -> Path:
-        if session_id is None or not _SAFE_SESSION_ID.fullmatch(session_id):
-            session_id = hashlib.sha256((session_id or "").encode()).hexdigest()
+        if session_id is None:
+            return self._directory / _NO_SESSION_FILE
+        if not _SAFE_SESSION_ID.fullmatch(session_id):
+            session_id = hashlib.sha256(session_id.encode()).hexdigest()
         return self._directory / f"{session_id}.jsonl"
 
 

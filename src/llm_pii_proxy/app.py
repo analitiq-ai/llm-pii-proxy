@@ -2,8 +2,8 @@
 
 import json
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from contextlib import AsyncExitStack, aclosing
 from typing import Any
 
 import httpx
@@ -27,7 +27,7 @@ from llm_pii_proxy.report import ScrubReport
 from llm_pii_proxy.restore import restore_message
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import Session, SessionStore
-from llm_pii_proxy.sse import restore_stream
+from llm_pii_proxy.sse import encode, restore_stream
 from llm_pii_proxy.tracing.record import Leg, RequestTrace, Tap
 from llm_pii_proxy.walker import apply_leaves, collect_leaves
 
@@ -107,10 +107,12 @@ class _Proxy:
             trace = RequestTrace(
                 self._tap,
                 self._trace_legs,
-                session_id=request.headers.get(SESSION_HEADER),
+                session_id=request.headers.get(SESSION_HEADER) or None,
                 route=request.url.path,
             )
             try:
+                if trace.wants(Leg.CLIENT_IN):
+                    trace.capture(Leg.CLIENT_IN, await request.body())
                 response = await handler(request, trace)
             except ProxyError as e:
                 trace.finish(e.status)
@@ -122,6 +124,7 @@ class _Proxy:
                 # A streamed leg is known only once the response ends.
                 response.on_end.callback(trace.finish, response.status_code)
             else:
+                trace.capture(Leg.CLIENT_OUT, response.body)
                 trace.finish(response.status_code)
             return response
 
@@ -228,12 +231,9 @@ class _Proxy:
         session: Session,
         report: ScrubReport,
     ) -> Response:
-        events = EventSource(upstream).aiter_sse()
-        if trace.wants(Leg.UPSTREAM_IN):
-            trace.open_stream(Leg.UPSTREAM_IN)
-            events = _fed_to(trace, Leg.UPSTREAM_IN, events)
-
-        body = restore_stream(events, session.vault, report)
+        received = _traced_stream(trace, Leg.UPSTREAM_IN, EventSource(upstream).aiter_sse())
+        restored = restore_stream(received, session.vault, report)
+        body = _encoded(_traced_stream(trace, Leg.CLIENT_OUT, restored))
         response = _StreamedResponse(body, upstream.status_code, self._headers(upstream, report))
         # Run last to first: the report's unissued count is final only once the body is closed.
         response.on_end.callback(self._log, session_id, session, report)
@@ -294,12 +294,32 @@ async def _read_and_close(upstream: httpx.Response) -> bytes:
         await upstream.aclose()
 
 
+def _traced_stream(
+    trace: RequestTrace, leg: Leg, events: AsyncGenerator[ServerSentEvent]
+) -> AsyncGenerator[ServerSentEvent]:
+    if not trace.wants(leg):
+        return events
+    # Opened here, not in the generator: a generator's body runs only once it is first read.
+    trace.open_stream(leg)
+    return _fed_to(trace, leg, events)
+
+
+# Each stage closes the one it reads from, so closing the body closes the whole stream.
+
+
 async def _fed_to(
-    trace: RequestTrace, leg: Leg, events: AsyncIterator[ServerSentEvent]
-) -> AsyncIterator[ServerSentEvent]:
-    async for event in events:
-        trace.feed(leg, event)
-        yield event
+    trace: RequestTrace, leg: Leg, events: AsyncGenerator[ServerSentEvent]
+) -> AsyncGenerator[ServerSentEvent]:
+    async with aclosing(events):
+        async for event in events:
+            trace.feed(leg, event)
+            yield event
+
+
+async def _encoded(events: AsyncGenerator[ServerSentEvent]) -> AsyncGenerator[bytes]:
+    async with aclosing(events):
+        async for event in events:
+            yield encode(event)
 
 
 class _StreamedResponse(StreamingResponse):

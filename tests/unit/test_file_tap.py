@@ -165,6 +165,11 @@ def test_unsafe_session_id_hashed(traces, session_id):
     assert [p.name for p in traces.iterdir()] == [expected]
 
 
+def test_record_without_session_goes_to_no_session_file(traces):
+    FileTap.open(traces, DAY_S, UID).record(make_record(None))
+    assert [p.name for p in traces.iterdir()] == ["_no-session.jsonl"]
+
+
 def test_symlink_at_file_path_not_followed(tmp_path, traces):
     target = tmp_path / "target"
     target.write_text("")

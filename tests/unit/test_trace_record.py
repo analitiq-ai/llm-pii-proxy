@@ -124,6 +124,26 @@ def test_upstream_legs_carry_upstream_status():
     assert [r.status for r in tap.records] == [200, 200]
 
 
+def test_raw_legs_are_the_client_legs_around_the_upstream_legs():
+    assert list(Leg) == [Leg.CLIENT_IN, Leg.UPSTREAM_OUT, Leg.UPSTREAM_IN, Leg.CLIENT_OUT]
+    assert [leg for leg in Leg if leg.raw] == [Leg.CLIENT_IN, Leg.CLIENT_OUT]
+
+
+def test_client_legs_carry_finish_status():
+    tap = RecordingTap()
+    trace = make_trace(tap)
+    for leg in (Leg.CLIENT_OUT, Leg.UPSTREAM_IN, Leg.UPSTREAM_OUT, Leg.CLIENT_IN):
+        trace.capture(leg, b"{}")
+    trace.upstream_responded(200)
+    trace.finish(500)
+    assert [(r.leg, r.status) for r in tap.records] == [
+        (Leg.CLIENT_IN, 500),
+        (Leg.UPSTREAM_OUT, 200),
+        (Leg.UPSTREAM_IN, 200),
+        (Leg.CLIENT_OUT, 500),
+    ]
+
+
 def test_without_upstream_response_legs_carry_finish_status():
     tap = RecordingTap()
     trace = make_trace(tap)

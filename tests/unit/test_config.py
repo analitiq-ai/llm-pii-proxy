@@ -103,11 +103,41 @@ def test_empty_trace_legs_is_off(monkeypatch):
     assert Settings().trace_legs == frozenset()
 
 
-@pytest.mark.parametrize("legs", ["client_in", "upstream_out,bogus"])
+@pytest.mark.parametrize("legs", ["bogus", "upstream_out,client"])
 def test_unknown_trace_leg_rejected(monkeypatch, legs):
     monkeypatch.setenv("PII_PROXY_TRACE_LEGS", legs)
     with pytest.raises(ValidationError, match="upstream_out"):
         Settings()
+
+
+def test_raw_legs_accepted_with_raw_opt_in(monkeypatch):
+    monkeypatch.setenv("PII_PROXY_TRACE_LEGS", "client_in,upstream_out,upstream_in,client_out")
+    monkeypatch.setenv("PII_PROXY_TRACE_RAW", "true")
+    assert Settings().trace_legs == frozenset(Leg)
+
+
+def test_raw_opt_in_off_by_default():
+    assert Settings().trace_raw is False
+
+
+@pytest.mark.parametrize(
+    ("legs", "named"),
+    [
+        ("client_in", ["client_in"]),
+        ("upstream_out,client_out", ["client_out"]),
+        ("client_out,client_in", ["client_in", "client_out"]),
+    ],
+)
+@pytest.mark.parametrize("raw", [None, "false"])
+def test_raw_leg_without_raw_opt_in_rejected(monkeypatch, legs, named, raw):
+    monkeypatch.setenv("PII_PROXY_TRACE_LEGS", legs)
+    if raw is not None:
+        monkeypatch.setenv("PII_PROXY_TRACE_RAW", raw)
+    with pytest.raises(ValidationError) as e:
+        Settings()
+    message = str(e.value)
+    assert "PII_PROXY_TRACE_RAW" in message
+    assert all(leg in message for leg in named)
 
 
 def test_trace_dir_made_absolute(monkeypatch, tmp_path):

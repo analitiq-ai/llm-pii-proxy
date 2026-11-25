@@ -38,7 +38,7 @@ a source is refused with 400 naming its type.
 | `image`, media type `image/png`, `image/jpeg`, `image/gif`, `image/webp` | vision call; OCR call when `document` |
 | `document`, media type `application/pdf` | `pdftoppm -r 150 -png` into a temp dir (deleted after), one OCR call per page |
 | any other media type | `BadRequest` 400 naming the media type |
-| `pdftoppm` exits non-zero | `BadRequest` 400 "PDF could not be rendered" |
+| `pdftoppm` exits non-zero, or runs past `confidential_timeout_s` (then killed) | `BadRequest` 400 "PDF could not be rendered" |
 
 Privatemode calls, `POST /v1/chat/completions`, `temperature: 0`, image as a `data:` URL `image_url` part
 (both checked against Privatemode on 2026-11-25):
@@ -67,7 +67,9 @@ All blocks of a request convert concurrently, bounded by one `asyncio.Semaphore(
 Cache: an `OrderedDict` LRU, key `sha256(media_type + "\0" + decoded bytes)`, value the converted parts
 before scrubbing (a PDF's page Markdown; an image's description and Markdown). The replacement text is
 built from them per block, because a PDF's `title` is not in the key. Identical blocks in one request
-convert once. Only successful conversions are stored. Process-wide, in memory only (FR-005).
+convert once, and a conversion still running is shared by every request holding the same block (one
+task per key, shielded so one request going away does not cancel it). Only successful conversions are
+stored. Process-wide, in memory only (FR-005).
 
 ## Other changes
 

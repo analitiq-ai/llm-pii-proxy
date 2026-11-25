@@ -1,5 +1,5 @@
 """The trace viewer's server: the page's own files, and the text of the trace directory's `*.jsonl`
-files at `/traces`. Answers only requests addressed to 127.0.0.1:<port>."""
+files at `/traces`. Answers only requests addressed to 127.0.0.1:<port> or localhost:<port>."""
 
 from importlib.resources import files
 from mimetypes import guess_type
@@ -47,6 +47,8 @@ def _read(path: Path) -> dict[str, str]:
 def create_viewer_app(trace_dir: Path, port: int) -> ASGIApp:
     pages = _page_files()
     expected_host = f"{HOST}:{port}"
+    # Browsers resolve `localhost` to loopback themselves, so no other site can send it as its Host.
+    own_hosts = {expected_host, f"localhost:{port}"}
 
     async def traces(_: Request) -> Response:
         # A missing directory raises here, so the page shows an error, not an empty list.
@@ -67,8 +69,9 @@ def create_viewer_app(trace_dir: Path, port: int) -> ASGIApp:
     async def own_address_only(scope, receive, send):
         # A page on another site that points its own name at 127.0.0.1 (DNS rebinding) sends that
         # name here, and is refused.
-        if scope["type"] == "http" and Headers(scope=scope).get("host") != expected_host:
-            await Response(status_code=421)(scope, receive, send)
+        if scope["type"] == "http" and Headers(scope=scope).get("host") not in own_hosts:
+            refusal = f"This viewer answers only http://{expected_host}/ - open that address.\n"
+            await Response(refusal, status_code=421, media_type="text/plain")(scope, receive, send)
             return
         await app(scope, receive, send)
 

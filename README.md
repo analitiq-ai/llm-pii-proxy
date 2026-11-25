@@ -173,8 +173,8 @@ side-by-side comparisons: Sent (`client_in` against `upstream_out`: the replaced
 proxy adds to `system`) and Received (`upstream_in` against `client_out`: what was restored). A leg that
 was not recorded is labelled so, an incomplete one is flagged, and lines that are not trace records are
 counted per file. Reload the page to see new records. The viewer listens on 127.0.0.1 only and answers only
-requests addressed to `127.0.0.1:<port>`, so a website open in the same browser cannot read the traces.
-The page writes trace content into the page only as text.
+requests addressed to `127.0.0.1:<port>` or `localhost:<port>`, so a website open in the same browser cannot
+read the traces. The page writes trace content into the page only as text.
 
 ## Limits
 

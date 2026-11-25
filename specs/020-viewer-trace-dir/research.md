@@ -16,15 +16,16 @@
 - **Decision**: extract the read-only checks of `FileTap.open` into
   `check_trace_dir(directory, uid)`: refuse a directory inside a git working tree; require a directory,
   mode 0700, owned by `uid`; require every `*.jsonl` in it to be a regular file, mode 0600, owned by
-  `uid`. `FileTap.open` creates the directory if missing and then calls it; the viewer calls it
-  directly, so a missing directory raises `TraceDirError` instead of being created.
+  `uid`. `FileTap.open` keeps its order: refuse a git tree, create the directory if missing, then call
+  `check_trace_dir`. The viewer calls `check_trace_dir` alone, so a missing directory raises
+  `TraceDirError` instead of being created.
 - **Rationale**: one definition of "safe to hold payloads" (FR-003). The viewer must not create the
   directory: a viewer started with a mistyped setting would otherwise show an empty list.
 
 ## R3. Carrying the access key
 
 - **Decision**: `secrets.token_urlsafe(32)` at each start. The printed address is
-  `http://<host>:<port>/#key=<key>`; the page reads `location.hash` and sends
+  `http://<authority>/#key=<key>` (data-model.md § Authority); the page reads `location.hash` and sends
   `Authorization: Bearer <key>` on `GET /traces`. The server compares with `hmac.compare_digest`.
   The address is written to standard output with `print`, never through `logging`.
 - **Rationale**: a fragment is never sent to the server, so the page request carries no key and
@@ -37,8 +38,8 @@
 
 - **Decision**: bind `PII_PROXY_HOST`, already validated as a loopback IP literal; a new
   `PII_PROXY_VIEWER_PORT`, default 8765 (the port README uses today). A middleware refuses with 421
-  every request whose `Host` header is not exactly the bound authority (`127.0.0.1:8765`,
-  `[::1]:8765`).
+  every request whose `Host` header is missing or not exactly the bound authority (data-model.md
+  § Authority), the same string the printed address uses.
 - **Rationale**: one loopback rule for both processes (FR-005). The exact Host match stops DNS
   rebinding (FR-007) as a second line behind the key: a page on another site that rebinds a name to
   127.0.0.1 sends that name as Host.
@@ -48,9 +49,9 @@
 ## R5. Serving files without request-chosen paths
 
 - **Decision**: at startup, list the files under `static/` into a fixed map of URL path to bytes and
-  content type; a request matches a key or gets 404. `GET /traces` lists `trace_dir/*.jsonl` (regular
-  files only, opened with `O_NOFOLLOW`), sorted by name, and returns
-  `{"files": [{"name", "text"} | {"name", "error"}]}`.
+  content type; a request matches a key or gets 404. `GET /traces` returns the trace listing as
+  data-model.md § Trace listing defines it: `os.scandir`, so a directory gone after startup is a 500
+  and not an empty list; `O_NOFOLLOW` and `fstat` per file; UTF-8 with `errors="replace"`.
 - **Rationale**: no path from a request is ever joined to a directory (FR-008), so there is nothing to
   sanitise. The server, not the page, decides which files are trace files, so `traceFiles` leaves
   `traces.js`. One response keeps the page as simple as the picker version: it received all files at

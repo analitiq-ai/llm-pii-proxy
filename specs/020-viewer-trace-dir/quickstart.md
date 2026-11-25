@@ -14,5 +14,7 @@ Prerequisites: `uv sync`, Node 22 or later, a trace directory with records (run 
    `-H 'Host: example.test:8765'` it returns 421. (Scenario 4; contracts/viewer-http.md.)
 6. Stop the viewer, `chmod 755` the trace directory, start it again: it exits naming the directory and
    the mode. Restore 700. (Edge cases.)
-7. With the page open, the browser's network panel shows requests only to the viewer's own address.
+7. Start a second viewer while the first runs: it exits non-zero and the message names the address in
+   use. (Edge cases.)
+8. With the page open, the browser's network panel shows requests only to the viewer's own address.
    (SC-004.)

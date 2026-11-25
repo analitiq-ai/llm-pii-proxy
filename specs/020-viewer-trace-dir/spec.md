@@ -39,9 +39,9 @@ append a record, reload, and check that it appears.
 3. **Given** the trace directory is set to a non-default location in the proxy's configuration,
    **When** the operator starts the viewer with that configuration, **Then** the viewer shows that
    directory's traces, and no setting other than the proxy's own names the directory.
-4. **Given** the viewer is running, **When** a request reaches it without the access key from the
-   printed address, or addressed to any host name other than the loopback address it listens on,
-   **Then** it is refused and no trace content is returned.
+4. **Given** the viewer is running, **When** a request for trace content lacks the access key from the
+   printed address, or any request is addressed to a host other than the loopback address and port it
+   listens on, **Then** it is refused and no trace content is returned.
 5. **Given** the viewer is running, **When** anything other than the viewer's own page files or the
    configured directory's trace files is requested, **Then** it is refused.
 
@@ -50,8 +50,11 @@ append a record, reload, and check that it appears.
 - The configured trace directory does not exist, or fails the checks the proxy applies to it (inside a
   git working tree, not owner-only, owned by someone else): the viewer refuses to start and names the
   directory and the reason, rather than showing an empty list.
-- The configuration is invalid in any way the proxy would refuse: the viewer refuses to start with the
-  same error.
+- The proxy's settings are invalid: the viewer refuses to start with the same validation error. The
+  viewer does not load the proxy's detectors or operator lists, so a broken detector or lists file
+  does not stop it: traces stay readable when the proxy cannot start.
+- The trace directory disappears or becomes unreadable while the viewer runs: loading or reloading
+  reports the failure, never an empty list.
 - The directory exists and holds no trace records: the viewer says there are no traced requests.
 - The proxy is writing a record while the viewer reads: a line cut short is reported as an invalid line,
   as today; a reload once the write has finished shows the record.
@@ -68,8 +71,9 @@ append a record, reload, and check that it appears.
 
 - **FR-001**: The viewer MUST read the trace files of the trace directory set in the proxy's
   configuration, and nothing else. It MUST NOT ask the operator for a directory.
-- **FR-002**: The viewer MUST take its configuration from the same source and with the same validation
-  as the proxy, so the trace directory is defined once.
+- **FR-002**: The viewer MUST take its settings from the same source and with the same validation as
+  the proxy, so the trace directory is defined once. It MUST NOT depend on the proxy's detectors or
+  operator lists.
 - **FR-003**: The viewer MUST refuse to start when the configured trace directory is missing or fails
   the proxy's safety checks for it, naming the directory and the reason.
 - **FR-004**: Opening or reloading the page MUST load the directory's current records.

@@ -49,20 +49,25 @@ Privatemode calls, `POST /v1/chat/completions`, `temperature: 0`, image as a `da
   text, a form, a table or a scanned document, with `response_format` a strict JSON schema
   `{document: boolean, description: string}`, validated with a strict Pydantic model.
 
-Failures map as the confidential pass's do: timeout, transport error or non-2xx → `ConfidentialUnavailable`
-(503); an answer that does not parse → `ConfidentialInvalid` (502). Causes name the failure kind only.
+Both these calls and the confidential pass's go through one helper, `privatemode.complete(client, request,
+purpose)`, moved out of `ConfidentialDetector._ask`: timeout, transport error or non-2xx →
+`ConfidentialUnavailable` (503); an answer without a string `content` → `ConfidentialInvalid` (502). A
+vision answer that does not match the schema → `ConfidentialInvalid`. Causes name the purpose and failure
+kind only.
 
 Replacement block: `{"type": "text", "text": ..., "cache_control"?: ...}`, keeping the original's
 `cache_control` if present. Text:
 
 - image: `[Image, converted to text by pii-proxy]\n\n<description>` plus `\n\n<markdown>` for a document;
-- PDF: `[PDF "<title>", N pages, converted to text by pii-proxy]` (`title` omitted when absent), then per
-  page `\n\n--- Page i ---\n\n<markdown>`.
+- PDF: `[PDF "<title>", N pages, converted to text by pii-proxy]` (`title` omitted when absent, `page`
+  when N is 1), then per page `\n\n--- Page i ---\n\n<markdown>`.
 
 All blocks of a request convert concurrently, bounded by one `asyncio.Semaphore(media_concurrency)`.
 
-Cache: an `OrderedDict` LRU, key `sha256(media_type + "\0" + decoded bytes)`, value the replacement text
-before scrubbing. Only successful conversions are stored. Process-wide, in memory only (FR-005).
+Cache: an `OrderedDict` LRU, key `sha256(media_type + "\0" + decoded bytes)`, value the converted parts
+before scrubbing (a PDF's page Markdown; an image's description and Markdown). The replacement text is
+built from them per block, because a PDF's `title` is not in the key. Identical blocks in one request
+convert once. Only successful conversions are stored. Process-wide, in memory only (FR-005).
 
 ## Other changes
 

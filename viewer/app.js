@@ -114,20 +114,13 @@ function sideLabel(side) {
 function comparisonBody(comparison) {
   const { left, right, shownAs } = comparison;
   if (shownAs === "diff") {
+    const { left: drawableLeft, right: drawableRight, substitutedPaths } = comparison.diffInput;
     const viewer = document.createElement("json-diff-viewer");
-    viewer.setData(payloadOf(left.record), payloadOf(right.record));
-    return viewer;
-  }
-  if (shownAs === "side by side") {
+    viewer.setData(drawableLeft, drawableRight);
+    if (substitutedPaths.length === 0) return viewer;
     const body = element("div");
-    const panes = element("div", "side-by-side");
-    for (const recorded of [left, right]) {
-      const pane = element("div", "single");
-      pane.append(renderTree(payloadOf(recorded.record)));
-      panes.append(pane);
-    }
-    const where = comparison.typeMismatches.join(", ");
-    body.append(element("p", "flag", `Not compared: the diff cannot draw ${where}. Both shown whole.`), panes);
+    const where = substitutedPaths.join(", ");
+    body.append(element("p", "flag", `Compared as JSON text, not field by field: ${where}.`), viewer);
     return body;
   }
   if (shownAs === "single") {

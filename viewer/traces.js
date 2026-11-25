@@ -114,23 +114,39 @@ function typeOf(value) {
 
 const isContainer = (value) => value !== null && typeof value === "object";
 
-// Where the vendored diff component cannot show both values: it renders nothing for a null root, and
-// where an array or object meets a value of another type it draws both panes in one side's shape.
-function typeMismatches(left, right) {
-  if (left === null || right === null) return ["root"];
-  const paths = [];
-  const walk = (a, b, path) => {
-    if (typeOf(a) !== typeOf(b)) {
-      if (isContainer(a) || isContainer(b)) paths.push(path);
-      return;
-    }
-    if (!isContainer(a)) return;
-    for (const key of Object.keys(a)) {
-      if (Object.hasOwn(b, key)) walk(a[key], b[key], `${path}.${key}`);
-    }
-  };
-  walk(left, right, "root");
-  return paths;
+// The vendored diff component renders nothing for a null root, and where an array or object meets a
+// value of another type it draws an empty container. Such a value goes to it as its JSON text on both
+// sides instead, so the conflict shows as a changed value and the rest of the payload is still diffed.
+function asDrawable(a, b, path, substituted) {
+  if (typeOf(a) !== typeOf(b)) {
+    if (!isContainer(a) && !isContainer(b)) return [a, b];
+    substituted.push(path);
+    return [JSON.stringify(a), JSON.stringify(b)];
+  }
+  if (!isContainer(a)) return [a, b];
+  const shared = new Map();
+  for (const key of Object.keys(a)) {
+    if (Object.hasOwn(b, key)) shared.set(key, asDrawable(a[key], b[key], `${path}.${key}`, substituted));
+  }
+  // Rebuilt rather than assigned into, so a "__proto__" key in a payload stays a plain key.
+  const copy = (value, sideIndex) =>
+    Array.isArray(value)
+      ? value.map((item, index) => (shared.has(String(index)) ? shared.get(String(index))[sideIndex] : item))
+      : Object.fromEntries(
+          Object.entries(value).map(([key, item]) => [key, shared.has(key) ? shared.get(key)[sideIndex] : item]),
+        );
+  return [copy(a, 0), copy(b, 1)];
+}
+
+function diffInput(leftRecord, rightRecord) {
+  const left = payloadOf(leftRecord);
+  const right = payloadOf(rightRecord);
+  if (left === null || right === null) {
+    return { left: JSON.stringify(left), right: JSON.stringify(right), substitutedPaths: ["root"] };
+  }
+  const substitutedPaths = [];
+  const [drawableLeft, drawableRight] = asDrawable(left, right, "root", substitutedPaths);
+  return { left: drawableLeft, right: drawableRight, substitutedPaths };
 }
 
 export function comparisons(request) {
@@ -138,14 +154,12 @@ export function comparisons(request) {
     const left = side(request, leftLeg);
     const right = side(request, rightLeg);
     const shown = shownAs(left, right);
-    const mismatches =
-      shown === "diff" ? typeMismatches(payloadOf(left.record), payloadOf(right.record)) : [];
     return {
       name,
       left,
       right,
-      shownAs: mismatches.length ? "side by side" : shown,
-      typeMismatches: mismatches,
+      shownAs: shown,
+      diffInput: shown === "diff" ? diffInput(left.record, right.record) : null,
     };
   });
 }

@@ -42,7 +42,7 @@ Inside those two fields, every JSON string value is scrubbed, at any depth, **ex
 |---|---|
 | any block with `type` `thinking` or `redacted_thinking`, in full | must be returned byte-for-byte or the API rejects it |
 | values of keys `type`, `id`, `tool_use_id`, `name`, `signature`, `media_type`, and the whole `cache_control` object | structural identifiers, not content |
-| `source` objects whose `type` is `base64`, `url` or `file` | binary or reference content, out of scope. Counted as `skipped_binary` in the scrub report |
+| `source` objects whose `type` is `base64`, `url` or `file` | never forwarded: converted to text or refused before the walk ([specs/023-media-to-text/plan.md](../../023-media-to-text/plan.md)) |
 | object keys | structural |
 
 `source` objects of type `text` (plain-text documents) are scrubbed. The walk is a skip-list, not an allow-list,

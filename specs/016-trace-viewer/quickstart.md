@@ -40,14 +40,16 @@ cases below. In the viewer:
 | stream stopped mid-response (Ctrl-C in Claude Code) | the cut legs flagged incomplete in the list and the comparison |
 | a garbage line appended to a trace file | the file reported with one invalid line; every other request still listed |
 | a trace file made unreadable (`chmod 000`) | the file reported as unreadable with the error's name; every other request still listed |
-| an empty directory; a directory holding only an empty `.jsonl` file | "no traced requests" |
+| a directory holding only a `.txt` file; one holding only an empty `.jsonl` file | "no traced requests" |
 | a line of a fully traced request duplicated in its file | the request reported with a duplicate leg; that leg's comparison not shown |
 | a field added to the `upstream_out` payload by hand | Sent marks the field as added |
 | a prompt containing `<img src=x onerror=alert(1)>`, in a diff and in a one-sided view | the markup shown as text in both; no dialog, no image request in the Network tab (FR-010) |
 | a valid trace file copied into a subdirectory, and a `.txt` file | neither read; the subdirectory's requests not listed |
-| another request sent in the same Claude Code session, directory picked again | the new request listed (its session file grew, no new file) |
-| another Claude Code session started, directory picked again | its requests listed |
-| a day of traces picked, then a directory holding one trace file picked before the list appears | only the second directory's requests and file report shown |
+| another request sent in the same Claude Code session, the same directory picked again | the new request listed (its session file grew, no new file) |
+| another Claude Code session started, the same directory picked again | its requests listed |
+| picker opened after a pick, then cancelled | the list as it was |
+| DevTools Performance, CPU throttled 20×: a day of traces picked, a request sent, the same directory picked again before the list appears | the list once, with the new request; no request listed twice, no duplicate leg reported |
+| the same throttling: a day of traces picked, then a directory holding one trace file picked before the list appears | only the second directory's requests and file report, still so after the first pick's reads would have finished |
 | browser developer tools, Network tab, whole session | no request other than the page's own files from `127.0.0.1` (SC-003) |
 | browser developer tools, Application tab, after viewing requests | local storage, session storage, IndexedDB and cookies for `127.0.0.1:8765` empty (FR-009) |
 | a day of traces | listed in under 5 seconds (SC-004) |

@@ -68,14 +68,14 @@ async def media_client():
         yield client
 
 
-def converter(client: httpx.AsyncClient) -> MediaConverter:
+def converter(client: httpx.AsyncClient, render_timeout_s: float = 10) -> MediaConverter:
     return MediaConverter(
         client,
         ocr_model="deepseek-ocr-2",
         vision_model="glm-5.3-flash",
         concurrency=4,
         cache_entries=8,
-        render_timeout_s=10,
+        render_timeout_s=render_timeout_s,
     )
 
 
@@ -202,6 +202,19 @@ async def test_unconvertible_blocks_are_refused_and_nothing_forwarded(
     assert r.status_code == status
     assert cause in r.json()["error"]["message"]
     assert not upstream_ok.calls
+
+
+@pytest.mark.parametrize("path", PATHS)
+async def test_a_pdf_render_that_overruns_is_retryable_and_nothing_forwarded(
+    make_proxy, regex_detector, media_client, upstream_ok, privatemode, path
+):
+    proxy = make_proxy([regex_detector], media=converter(media_client, render_timeout_s=0))
+    r = await proxy.post(path, json=request(pdf(["one"])), headers=SESSION)
+    assert r.status_code == 503
+    assert r.headers["retry-after"] == "5"
+    assert "PDF rendering timed out" in r.json()["error"]["message"]
+    assert not upstream_ok.calls
+    assert not privatemode.calls
 
 
 @pytest.mark.parametrize("path", PATHS)

@@ -168,7 +168,9 @@ async def test_unsupported_blocks_are_refused_naming_what(privatemode, client, b
 
 
 @pytest.mark.parametrize(
-    "data", ["not base64!", PNG[:8] + "*" + PNG[8:]], ids=["space", "asterisk"]
+    "data",
+    ["not base64!", PNG[:8] + "*" + PNG[8:], PNG[:8] + "é" + PNG[8:]],
+    ids=["space", "asterisk", "non-ascii"],
 )
 async def test_base64_with_a_character_outside_the_alphabet_is_refused(privatemode, client, data):
     with pytest.raises(BadRequest, match="not valid base64") as raised:

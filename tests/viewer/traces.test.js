@@ -198,3 +198,43 @@ test("payloadOf returns the payload parsed from the record's line, whatever JSON
     assert.deepEqual(payloadOf(record), payload);
   }
 });
+
+function sentPair(left, right) {
+  const request = groupRequests(
+    records(line({ payload: left }), line({ leg: "upstream_out", payload: right })),
+  )[0];
+  return comparisons(request)[0];
+}
+
+test("comparisons shows a pair side by side, with the paths, where the diff component would hide a value", () => {
+  const cases = [
+    [null, { a: 1 }, ["root"]],
+    [{ a: 1 }, null, ["root"]],
+    [null, null, ["root"]],
+    [{ content: [{ text: "x" }] }, { content: "x" }, ["root.content"]],
+    [{ a: { b: [1] }, c: "x" }, { a: { b: { 0: 1 } }, c: 2 }, ["root.a.b"]],
+    [{ a: 1 }, "{", ["root"]],
+    [[1], { 0: 1 }, ["root"]],
+    ["x", [1], ["root"]],
+  ];
+  for (const [left, right, paths] of cases) {
+    const sent = sentPair(left, right);
+    assert.equal(sent.shownAs, "side by side", JSON.stringify([left, right]));
+    assert.deepEqual(sent.typeMismatches, paths, JSON.stringify([left, right]));
+  }
+});
+
+test("comparisons keeps the diff where both sides render: scalars of any type and keys on one side", () => {
+  const cases = [
+    [{ a: null }, { a: 1 }],
+    [{ a: "x" }, { a: false }],
+    [{ a: { b: 1 } }, { c: [1] }],
+    [[1, 2], [1]],
+    ["x", 3],
+  ];
+  for (const [left, right] of cases) {
+    const sent = sentPair(left, right);
+    assert.equal(sent.shownAs, "diff", JSON.stringify([left, right]));
+    assert.deepEqual(sent.typeMismatches, [], JSON.stringify([left, right]));
+  }
+});

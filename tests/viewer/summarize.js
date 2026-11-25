@@ -5,7 +5,8 @@ import { basename, join } from "node:path";
 import { comparisons, groupRequests, parseTraceFile, payloadOf, traceFiles } from "../../viewer/traces.js";
 
 const directory = process.argv[2];
-const picked = readdirSync(directory).map((name) => `${basename(directory)}/${name}`);
+// Recursive, as the browser's directory pick is: traceFiles must drop what lies in subdirectories.
+const picked = readdirSync(directory, { recursive: true }).map((path) => `${basename(directory)}/${path}`);
 const files = traceFiles(picked).map(({ name }) => ({
   name,
   ...parseTraceFile(name, readFileSync(join(directory, name), "utf8")),
@@ -20,6 +21,7 @@ const requests = groupRequests(files.flatMap((f) => f.records)).map((request) =>
     sides: [left, right].map((s) => ({
       leg: s.leg,
       state: s.state,
+      status: s.record?.status,
       complete: s.complete,
       file: s.record?.file,
       payload: s.record ? payloadOf(s.record) : undefined,

@@ -73,12 +73,14 @@ def _summarize(directory: Path) -> dict:
 
 def test_viewer_reads_what_the_proxy_writes(tmp_path):
     """The viewer pairs and groups records written by FileTap itself, across the file per session,
-    the no-session file and a hashed session file, and reports a line that is not a record."""
+    the no-session file and a hashed session file, for a full, a scrubbed-legs-only and a rejected
+    request; it reports a line that is not a record and ignores files in subdirectories and files
+    that are not .jsonl."""
     directory = tmp_path / "traces"
     tap = FileTap.open(directory, ttl_s=3600, uid=os.getuid())
     moment = datetime(2026, 11, 25, 10, 0, tzinfo=UTC)
 
-    def write(session_id, request_id, leg, payload, complete=True, seconds=0):
+    def write(session_id, request_id, leg, payload, complete=True, seconds=0, status=200):
         tap.record(
             TraceRecord(
                 time=moment + timedelta(seconds=seconds),
@@ -86,7 +88,7 @@ def test_viewer_reads_what_the_proxy_writes(tmp_path):
                 request_id=request_id,
                 leg=leg,
                 route="/v1/messages",
-                status=200,
+                status=status,
                 complete=complete,
                 payload=payload,
             )
@@ -102,13 +104,26 @@ def test_viewer_reads_what_the_proxy_writes(tmp_path):
         )
     write(None, "anonymous", Leg.UPSTREAM_OUT, "not json", seconds=1)
     write("has space", "hashed", Leg.UPSTREAM_IN, [1, None], seconds=2)
+    write("s-1", "scrubbed", Leg.UPSTREAM_OUT, {"text": "<EMAIL_1>"}, seconds=3)
+    write("s-1", "scrubbed", Leg.UPSTREAM_IN, {"text": "ok <EMAIL_1>"}, seconds=3)
+    write(None, "rejected", Leg.CLIENT_IN, "{", seconds=4, status=400)
     with (directory / "s-1.jsonl").open("a") as trace_file:
         trace_file.write("cut short\n")
+    valid_line = (directory / "s-1.jsonl").read_text().splitlines()[0]
+    (directory / "sub").mkdir()
+    (directory / "sub" / "nested.jsonl").write_text(valid_line.replace('"full"', '"nested"') + "\n")
+    (directory / "notes.txt").write_text(valid_line.replace('"full"', '"in-notes"') + "\n")
 
     summary = _summarize(directory)
 
-    assert [r["requestId"] for r in summary["requests"]] == ["hashed", "anonymous", "full"]
-    hashed, anonymous, full = summary["requests"]
+    assert [r["requestId"] for r in summary["requests"]] == [
+        "rejected",
+        "scrubbed",
+        "hashed",
+        "anonymous",
+        "full",
+    ]
+    rejected, scrubbed, hashed, anonymous, full = summary["requests"]
     assert hashed["sessionId"] == "has space"
     assert anonymous["sessionId"] is None
     sent, received = full["comparisons"]
@@ -116,6 +131,7 @@ def test_viewer_reads_what_the_proxy_writes(tmp_path):
     assert sent["sides"][0] == {
         "leg": "client_in",
         "state": "recorded",
+        "status": 200,
         "complete": True,
         "file": "s-1.jsonl",
         "payload": {"leg": "client_in", "text": "ünïcode"},
@@ -126,6 +142,14 @@ def test_viewer_reads_what_the_proxy_writes(tmp_path):
     assert [c["shownAs"] for c in anonymous["comparisons"]] == ["single", "none"]
     assert hashed["comparisons"][1]["sides"][0]["payload"] == [1, None]
     assert summary["invalid"] == [{"name": "s-1.jsonl", "invalidLines": 1}]
+    assert [c["shownAs"] for c in scrubbed["comparisons"]] == ["single", "single"]
+    scrubbed_sent, scrubbed_received = scrubbed["comparisons"]
+    assert [s["state"] for s in scrubbed_sent["sides"]] == ["not recorded", "recorded"]
+    assert [s["state"] for s in scrubbed_received["sides"]] == ["recorded", "not recorded"]
+    assert rejected["sessionId"] is None
+    assert [c["shownAs"] for c in rejected["comparisons"]] == ["single", "none"]
+    assert rejected["comparisons"][0]["sides"][0]["status"] == 400
+    assert rejected["comparisons"][0]["sides"][0]["payload"] == "{"
 
 
 def test_viewer_scripts_are_the_listed_three_and_contain_no_blocked_markup_api_name():

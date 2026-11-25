@@ -3,6 +3,7 @@ Privatemode are mocked; PDFs are rendered by the real `pdftoppm`."""
 
 import base64
 import json
+import logging
 
 import httpx
 import pytest
@@ -44,7 +45,9 @@ def request(*content: dict) -> dict:
 
 
 def completion(content: str) -> httpx.Response:
-    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    return httpx.Response(
+        200, json={"choices": [{"message": {"content": content}, "finish_reason": "stop"}]}
+    )
 
 
 def answer_by_model(request_: httpx.Request) -> httpx.Response:
@@ -212,11 +215,16 @@ async def test_privatemode_down_fails_the_request_and_nothing_is_forwarded(
 
 
 @pytest.mark.parametrize("path", PATHS)
+@pytest.mark.parametrize(
+    "block",
+    [image(), image() | {"source": image()["source"] | {"media_type": "image/bmp"}}],
+    ids=["png", "unsupported media type"],
+)
 async def test_without_conversion_a_base64_block_is_refused_naming_the_setting(
-    make_proxy, regex_detector, upstream_ok, path
+    make_proxy, regex_detector, upstream_ok, path, block
 ):
     proxy = make_proxy([regex_detector])
-    r = await proxy.post(path, json=request(image()), headers=SESSION)
+    r = await proxy.post(path, json=request(block), headers=SESSION)
     assert r.status_code == 400
     assert "PII_PROXY_MEDIA_ENABLED" in r.json()["error"]["message"]
     assert not upstream_ok.calls
@@ -250,3 +258,10 @@ async def test_converted_text_reaches_the_confidential_pass(
     first = sent(upstream_ok)["messages"][0]["content"][0]["text"]
     assert phrase not in first
     assert "A photo of PII_CONTEXT_0001" in first
+
+
+async def test_nothing_logged_holds_converted_content(proxy, upstream_ok, privatemode, caplog):
+    caplog.set_level(logging.DEBUG)
+    r = await proxy.post("/v1/messages", json=request(image(), pdf(["one"])), headers=SESSION)
+    assert r.status_code == 200
+    assert EMAIL not in caplog.text and "An invoice" not in caplog.text

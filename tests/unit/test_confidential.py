@@ -293,3 +293,15 @@ async def test_locally_failed_leaf_is_not_sent(privatemode, client):
 
     (out,) = await pipeline(client, local=Boom()).scrub(["Ask anyone."], Vault(), ScrubReport())
     assert isinstance(out, RuntimeError) and not route.called
+
+
+async def test_a_cut_off_answer_is_invalid(privatemode, client):
+    cut_off = {"role": "assistant", "content": '{"findings": [{"text": "the mayor'}
+    privatemode.post("/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200, json={"choices": [{"message": cut_off, "finish_reason": "length"}]}
+        )
+    )
+    (result,) = (await detector(client).detect(["Ask the mayor's chauffeur."])).leaves
+    assert isinstance(result, PrivatemodeInvalid)
+    assert result.cause.startswith("confidential pass") and "cut off" in result.cause

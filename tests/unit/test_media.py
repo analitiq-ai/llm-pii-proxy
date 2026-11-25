@@ -14,6 +14,7 @@ import respx
 from llm_pii_proxy import media as media_module
 from llm_pii_proxy.errors import (
     BadRequest,
+    MediaRenderTimedOut,
     PrivatemodeInvalid,
     PrivatemodeUnavailable,
     ProxyError,
@@ -50,7 +51,12 @@ def body(*blocks: dict) -> dict:
 
 def completion(content: str) -> httpx.Response:
     return httpx.Response(
-        200, json={"choices": [{"message": {"role": "assistant", "content": content}}]}
+        200,
+        json={
+            "choices": [
+                {"message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
+            ]
+        },
     )
 
 
@@ -161,9 +167,14 @@ async def test_unsupported_blocks_are_refused_naming_what(privatemode, client, b
     assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 0}
 
 
-async def test_invalid_base64_is_refused(privatemode, client):
-    with pytest.raises(BadRequest, match="base64"):
-        await convert_media(body(image(data="not base64!")), converter(client))
+@pytest.mark.parametrize(
+    "data", ["not base64!", PNG[:8] + "*" + PNG[8:]], ids=["space", "asterisk"]
+)
+async def test_base64_with_a_character_outside_the_alphabet_is_refused(privatemode, client, data):
+    with pytest.raises(BadRequest, match="not valid base64") as raised:
+        await convert_media(body(image(data=data)), converter(client))
+    assert data not in raised.value.cause
+    assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 0}
 
 
 async def test_an_image_that_is_not_a_document_is_described_only(privatemode, client):
@@ -397,12 +408,55 @@ async def test_overlapping_requests_share_one_conversion(privatemode, client):
         "media type missing",
     ],
 )
-@pytest.mark.parametrize("enabled", [True, False])
-async def test_malformed_blocks_are_refused(privatemode, client, source, named, enabled):
+async def test_malformed_blocks_are_refused(privatemode, client, source, named):
     block = {"type": "image", "source": source}
-    with pytest.raises(BadRequest, match=named):
-        await convert_media(body(block), converter(client) if enabled else None)
+    with pytest.raises(BadRequest, match=named) as raised:
+        await convert_media(body(block), converter(client))
+    assert PNG not in raised.value.cause
     assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 0}
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"type": "base64", "media_type": "image/png", "data": PNG},
+        {"type": "base64", "media_type": "image/bmp", "data": PNG},
+        {"type": "base64", "media_type": "image/png", "data": "not base64!"},
+        {"type": "base64", "media_type": "image/png", "data": 1},
+        {"type": "base64", "media_type": "image/png", "data": ""},
+        {"type": "base64", "media_type": "image/png"},
+        {"type": "base64", "media_type": {}, "data": PNG},
+        {"type": "base64", "data": PNG},
+    ],
+    ids=[
+        "valid",
+        "unsupported media type",
+        "invalid base64",
+        "data not a string",
+        "data empty",
+        "data missing",
+        "media type not a string",
+        "media type missing",
+    ],
+)
+async def test_without_conversion_every_base64_image_gets_the_setting_refusal_only(
+    privatemode, source
+):
+    with pytest.raises(BadRequest) as raised:
+        await convert_media(body({"type": "image", "source": source}), None)
+    assert raised.value.cause == (
+        "images and PDFs are not forwarded; set PII_PROXY_MEDIA_ENABLED=true to convert them "
+        "to text on Privatemode"
+    )
+
+
+async def test_one_invalid_block_refuses_the_request_before_any_conversion(privatemode, client):
+    media = converter(client)
+    with pytest.raises(BadRequest, match="image/bmp"):
+        await convert_media(body(image(), image(media_type="image/bmp")), media)
+    assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 0}
+    await convert_media(body(image()), media)
+    assert privatemode.calls[VISION_MODEL] == 1
 
 
 @pytest.mark.parametrize("source_type", ["url", "file", "base64"])
@@ -424,14 +478,15 @@ async def test_an_unexpected_failure_becomes_a_proxy_error_without_content(
     assert raised.value.cause == "media conversion failed (FileNotFoundError)"
 
 
-async def test_a_pdf_render_that_overruns_is_killed_and_refused(client, monkeypatch, tmp_path):
+async def test_a_pdf_render_that_overruns_is_killed_and_retryable(client, monkeypatch, tmp_path):
     slow = tmp_path / "slow-pdftoppm"
     pid_file = tmp_path / "pid"
     slow.write_text(f"#!/bin/sh\necho $$ > {pid_file}\nexec sleep 30\n")
     slow.chmod(0o700)
     monkeypatch.setattr(media_module, "PDFTOPPM", str(slow))
-    with pytest.raises(BadRequest, match="PDF could not be rendered"):
+    with pytest.raises(MediaRenderTimedOut, match="PDF rendering timed out") as raised:
         await render_pdf(make_pdf(["a"]), timeout_s=0.3)
+    assert (raised.value.status, raised.value.headers()) == (503, {"retry-after": "5"})
     pid = int(pid_file.read_text())
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
@@ -460,3 +515,41 @@ async def test_a_request_going_away_does_not_cancel_a_shared_conversion(privatem
     assert out["messages"][0]["content"][0]["type"] == "text"
     await convert_media(body(image()), media)
     assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 1}
+
+
+async def test_a_cut_off_answer_is_refused_and_not_cached(privatemode, client):
+    media = converter(client)
+    privatemode.vision_answer = httpx.Response(
+        200,
+        json={"choices": [{"message": {"content": "Jane"}, "finish_reason": "length"}]},
+    )
+    with pytest.raises(PrivatemodeInvalid, match="media conversion.*cut off") as raised:
+        await convert_media(body(image()), media)
+    assert "Jane" not in raised.value.cause
+    privatemode.vision_answer = vision("a description", document=False)
+    await convert_media(body(image()), media)
+    assert privatemode.calls[VISION_MODEL] == 2
+
+
+async def test_a_failure_no_request_receives_is_logged_without_content(privatemode, client, caplog):
+    privatemode.delay = lambda url: 0.05
+    privatemode.vision_answer = httpx.Response(500, text="Jane")
+    media = converter(client)
+    request = asyncio.create_task(convert_media(body(image()), media))
+    await asyncio.sleep(0.01)
+    request.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await request
+    await asyncio.sleep(0.1)
+    logged = [r.getMessage() for r in caplog.records]
+    assert any("media conversion" in m and "PrivatemodeUnavailable" in m for m in logged)
+    assert all(r.exc_info is None for r in caplog.records)
+    assert "Jane" not in caplog.text
+
+
+async def test_a_failure_a_request_receives_is_not_logged_again(privatemode, client, caplog):
+    privatemode.vision_answer = httpx.Response(500)
+    with pytest.raises(PrivatemodeUnavailable):
+        await convert_media(body(image()), converter(client))
+    await asyncio.sleep(0.1)
+    assert not caplog.records

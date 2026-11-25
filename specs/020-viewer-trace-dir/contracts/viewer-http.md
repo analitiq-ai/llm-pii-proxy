@@ -1,6 +1,7 @@
 # Contract: viewer HTTP interface
 
-Served by `python -m llm_pii_proxy.viewer` on `http://<PII_PROXY_HOST>:<PII_PROXY_VIEWER_PORT>`.
+Served by `python -m llm_pii_proxy.viewer` on `http://<authority>/`, where the authority is `authority(PII_PROXY_HOST,
+PII_PROXY_VIEWER_PORT)` (data-model.md § Authority).
 
 ## Every request
 
@@ -17,7 +18,7 @@ Served by `python -m llm_pii_proxy.viewer` on `http://<PII_PROXY_HOST>:<PII_PROX
 | `GET /<path>` for a file under `static/` at startup | none | that file, content type by extension |
 | `GET /traces` | `Authorization: Bearer <key>` | 200 `application/json`, the trace listing (data-model.md) |
 | `GET /traces`, header missing or key wrong | — | 401, empty body |
-| `GET /traces`, `trace_dir` cannot be listed | key | 500, `{"error": "<exception class name>"}` |
+| `GET /traces`, `os.scandir(trace_dir)` raises `OSError` | key | 500, `{"error": "<exception class name>"}` |
 | any other method on a route above | — | 405 |
 | anything else | — | 404 |
 

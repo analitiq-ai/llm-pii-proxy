@@ -16,5 +16,8 @@ Prerequisites: `uv sync`, Node 22 or later, a trace directory with records (run 
    the mode. Restore 700. (Edge cases.)
 7. Start a second viewer while the first runs: it exits non-zero and the message names the address in
    use. (Edge cases.)
-8. With the page open, the browser's network panel shows requests only to the viewer's own address.
+8. With the page open, move the trace directory away and reload: the page says the trace directory is
+   unreadable, not that there are no requests. Move it back and reload: the requests return. (Edge
+   cases.)
+9. With the page open, the browser's network panel shows requests only to the viewer's own address.
    (SC-004.)

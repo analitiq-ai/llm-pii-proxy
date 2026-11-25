@@ -118,6 +118,18 @@ function comparisonBody(comparison) {
     viewer.setData(payloadOf(left.record), payloadOf(right.record));
     return viewer;
   }
+  if (shownAs === "side by side") {
+    const body = element("div");
+    const panes = element("div", "side-by-side");
+    for (const recorded of [left, right]) {
+      const pane = element("div", "single");
+      pane.append(renderTree(payloadOf(recorded.record)));
+      panes.append(pane);
+    }
+    const where = comparison.typeMismatches.join(", ");
+    body.append(element("p", "flag", `Not compared: the diff cannot draw ${where}. Both shown whole.`), panes);
+    return body;
+  }
   if (shownAs === "single") {
     const recorded = left.state === "recorded" ? left : right;
     const single = element("div", "single");

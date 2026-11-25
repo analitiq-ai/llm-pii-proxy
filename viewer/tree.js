@@ -1,5 +1,5 @@
-// A read-only tree of one JSON value, for a comparison with one side recorded: the diff component
-// shows an empty tree when both sides are equal and marks everything added against an empty side.
+// A read-only tree of one JSON value, for a comparison the diff component cannot draw: with one side
+// recorded it marks everything added against an empty side, and it hides values whose types differ.
 // Text goes in with textContent only, so payload text is never parsed as markup.
 
 function element(tag, className, text) {

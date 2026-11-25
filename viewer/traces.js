@@ -107,11 +107,46 @@ function shownAs(left, right) {
   return ["none", "single", "diff"][recorded];
 }
 
+function typeOf(value) {
+  if (value === null) return "null";
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+const isContainer = (value) => value !== null && typeof value === "object";
+
+// Where the vendored diff component cannot show both values: it renders nothing for a null root, and
+// where an array or object meets a value of another type it draws both panes in one side's shape.
+function typeMismatches(left, right) {
+  if (left === null || right === null) return ["root"];
+  const paths = [];
+  const walk = (a, b, path) => {
+    if (typeOf(a) !== typeOf(b)) {
+      if (isContainer(a) || isContainer(b)) paths.push(path);
+      return;
+    }
+    if (!isContainer(a)) return;
+    for (const key of Object.keys(a)) {
+      if (Object.hasOwn(b, key)) walk(a[key], b[key], `${path}.${key}`);
+    }
+  };
+  walk(left, right, "root");
+  return paths;
+}
+
 export function comparisons(request) {
   return PAIRS.map(([name, leftLeg, rightLeg]) => {
     const left = side(request, leftLeg);
     const right = side(request, rightLeg);
-    return { name, left, right, shownAs: shownAs(left, right) };
+    const shown = shownAs(left, right);
+    const mismatches =
+      shown === "diff" ? typeMismatches(payloadOf(left.record), payloadOf(right.record)) : [];
+    return {
+      name,
+      left,
+      right,
+      shownAs: mismatches.length ? "side by side" : shown,
+      typeMismatches: mismatches,
+    };
   });
 }
 

@@ -1,6 +1,9 @@
 """Entry point: `python -m llm_pii_proxy`."""
 
+import asyncio
 import logging
+import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,9 +20,14 @@ from llm_pii_proxy.detection.gitleaks import SecretDetector
 from llm_pii_proxy.detection.presidio import PresidioDetector, build_engine
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import SessionStore
+from llm_pii_proxy.tracing.file_tap import FileTap, sweep_periodically
+from llm_pii_proxy.tracing.record import NullTap, Tap
+
+log = logging.getLogger(__name__)
 
 # Connect fails fast; read is long because a streamed answer can pause while the model thinks.
 UPSTREAM_TIMEOUT = httpx.Timeout(connect=10.0, read=600.0, write=60.0, pool=10.0)
+TRACE_SWEEP_INTERVAL_S = 3600
 
 
 def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
@@ -38,13 +46,22 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
             settings.confidential_chunk_chars,
             settings.confidential_concurrency,
         )
+    file_tap = _open_trace_output(settings)
+    tap: Tap = NullTap() if file_tap is None else file_tap
 
     @asynccontextmanager
     async def lifespan(_: Starlette) -> AsyncIterator[None]:
+        sweeper = None
+        if file_tap is not None:
+            sweeper = asyncio.create_task(
+                sweep_periodically(file_tap, TRACE_SWEEP_INTERVAL_S), name="trace-retention-sweep"
+            )
         try:
             await secrets.start()
             yield
         finally:
+            if sweeper is not None:
+                sweeper.cancel()
             await secrets.close()
             await upstream.aclose()
             if privatemode is not None:
@@ -59,7 +76,22 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
         sessions=SessionStore(lists.always_scrub, settings.session_idle_ttl_s),
         upstream=upstream,
         lifespan=lifespan,
+        tap=tap,
+        trace_legs=settings.trace_legs,
     )
+
+
+def _open_trace_output(settings: Settings) -> FileTap | None:
+    if not settings.trace_legs:
+        return None
+    file_tap = FileTap.open(settings.trace_dir, settings.trace_ttl_h * 3600, os.getuid())
+    file_tap.sweep(time.time())
+    log.warning(
+        "payload tracing is on: legs %s are written to %s",
+        ",".join(sorted(settings.trace_legs)),
+        settings.trace_dir,
+    )
+    return file_tap
 
 
 def main() -> None:

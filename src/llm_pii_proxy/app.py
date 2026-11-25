@@ -2,17 +2,17 @@
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AsyncExitStack
 from typing import Any
 
 import httpx
-from httpx_sse import EventSource
+from httpx_sse import EventSource, ServerSentEvent
 from starlette.applications import Starlette
-from starlette.background import BackgroundTask
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
-from starlette.types import Lifespan
+from starlette.types import Lifespan, Receive, Scope, Send
 
 from llm_pii_proxy.errors import (
     BadRequest,
@@ -28,6 +28,7 @@ from llm_pii_proxy.restore import restore_message
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import Session, SessionStore
 from llm_pii_proxy.sse import restore_stream
+from llm_pii_proxy.tracing.record import Leg, RequestTrace, Tap
 from llm_pii_proxy.walker import apply_leaves, collect_leaves
 
 log = logging.getLogger("llm_pii_proxy")
@@ -57,11 +58,13 @@ def create_app(
     sessions: SessionStore,
     upstream: httpx.AsyncClient,
     lifespan: Lifespan[Starlette] | None = None,
+    tap: Tap,
+    trace_legs: frozenset[Leg],
 ) -> Starlette:
-    proxy = _Proxy(pipeline, sessions, upstream)
+    proxy = _Proxy(pipeline, sessions, upstream, tap, trace_legs)
     routes = [
-        Route("/v1/messages", proxy.messages, methods=["POST"]),
-        Route("/v1/messages/count_tokens", proxy.count_tokens, methods=["POST"]),
+        Route("/v1/messages", proxy.traced(proxy.messages), methods=["POST"]),
+        Route("/v1/messages/count_tokens", proxy.traced(proxy.count_tokens), methods=["POST"]),
         Route("/api/hello", proxy.passthrough, methods=["HEAD"]),
         Route("/v1/models", proxy.passthrough, methods=["GET"]),
     ]
@@ -77,33 +80,74 @@ def create_app(
     )
 
 
+_TracedHandler = Callable[[Request, RequestTrace], Awaitable[Response]]
+
+
 class _Proxy:
-    def __init__(self, pipeline: Pipeline, sessions: SessionStore, upstream: httpx.AsyncClient):
+    def __init__(
+        self,
+        pipeline: Pipeline,
+        sessions: SessionStore,
+        upstream: httpx.AsyncClient,
+        tap: Tap,
+        trace_legs: frozenset[Leg],
+    ):
         self._pipeline = pipeline
         self._sessions = sessions
         self._upstream = upstream
+        self._tap = tap
+        self._trace_legs = trace_legs
 
-    async def messages(self, request: Request) -> Response:
+    def traced(self, handler: _TracedHandler) -> Callable[[Request], Awaitable[Response]]:
+        """The one place a request's trace is finished: on the response, on a raised exception, or
+        when a streamed response ends, however it ends. A request cancelled before the handler
+        returns writes nothing."""
+
+        async def endpoint(request: Request) -> Response:
+            trace = RequestTrace(
+                self._tap,
+                self._trace_legs,
+                session_id=request.headers.get(SESSION_HEADER),
+                route=request.url.path,
+            )
+            try:
+                response = await handler(request, trace)
+            except ProxyError as e:
+                trace.finish(e.status)
+                raise
+            except Exception:
+                trace.finish(500)
+                raise
+            if isinstance(response, _StreamedResponse):
+                # A streamed leg is known only once the response ends.
+                response.on_end.callback(trace.finish, response.status_code)
+            else:
+                trace.finish(response.status_code)
+            return response
+
+        return endpoint
+
+    async def messages(self, request: Request, trace: RequestTrace) -> Response:
         session_id, session, report, body = await self._scrub(request)
-        upstream = await self._send(request, json.dumps(body).encode())
+        upstream = await self._forward(request, trace, body)
         if not upstream.is_success:
-            return await self._forward_error(upstream, session_id, session, report)
+            return await self._forward_error(upstream, trace, session_id, session, report)
         if upstream.headers.get("content-type", "").startswith("text/event-stream"):
-            return self._stream(upstream, session_id, session, report)
-        try:
-            restored, unissued = restore_message(json.loads(await upstream.aread()), session.vault)
-        finally:
-            await upstream.aclose()
+            return self._stream(upstream, trace, session_id, session, report)
+        content = await _read_and_close(upstream)
+        trace.capture(Leg.UPSTREAM_IN, content)
+        restored, unissued = restore_message(json.loads(content), session.vault)
         report.unissued += unissued
         self._log(session_id, session, report)
         return JSONResponse(restored, upstream.status_code, self._headers(upstream, report))
 
-    async def count_tokens(self, request: Request) -> Response:
+    async def count_tokens(self, request: Request, trace: RequestTrace) -> Response:
         session_id, session, report, body = await self._scrub(request)
-        upstream = await self._send(request, json.dumps(body).encode())
+        upstream = await self._forward(request, trace, body)
         if not upstream.is_success:
-            return await self._forward_error(upstream, session_id, session, report)
+            return await self._forward_error(upstream, trace, session_id, session, report)
         content = await _read_and_close(upstream)
+        trace.capture(Leg.UPSTREAM_IN, content)
         self._log(session_id, session, report)
         return Response(content, upstream.status_code, self._headers(upstream, report))
 
@@ -130,6 +174,15 @@ class _Proxy:
         scrubbed = apply_leaves(body, [r for r in results if isinstance(r, str)])
         return session_id, session, report, with_notice(scrubbed)
 
+    async def _forward(
+        self, request: Request, trace: RequestTrace, body: dict[str, Any]
+    ) -> httpx.Response:
+        content = json.dumps(body).encode()
+        trace.capture(Leg.UPSTREAM_OUT, content)
+        upstream = await self._send(request, content)
+        trace.upstream_responded(upstream.status_code)
+        return upstream
+
     async def _send(self, request: Request, content: bytes) -> httpx.Response:
         outbound = self._upstream.build_request(
             request.method,
@@ -144,9 +197,15 @@ class _Proxy:
             raise UpstreamUnavailable(f"upstream unreachable ({type(e).__name__})") from e
 
     async def _forward_error(
-        self, upstream: httpx.Response, session_id: str, session: Session, report: ScrubReport
+        self,
+        upstream: httpx.Response,
+        trace: RequestTrace,
+        session_id: str,
+        session: Session,
+        report: ScrubReport,
     ) -> Response:
         content = await _read_and_close(upstream)
+        trace.capture(Leg.UPSTREAM_IN, content)
         if (
             upstream.status_code == 400
             and session.joined_mid_conversation
@@ -162,22 +221,25 @@ class _Proxy:
         return Response(content, upstream.status_code, self._headers(upstream, report))
 
     def _stream(
-        self, upstream: httpx.Response, session_id: str, session: Session, report: ScrubReport
+        self,
+        upstream: httpx.Response,
+        trace: RequestTrace,
+        session_id: str,
+        session: Session,
+        report: ScrubReport,
     ) -> Response:
         events = EventSource(upstream).aiter_sse()
+        if trace.wants(Leg.UPSTREAM_IN):
+            trace.open_stream(Leg.UPSTREAM_IN)
+            events = _fed_to(trace, Leg.UPSTREAM_IN, events)
 
-        async def body() -> AsyncIterator[bytes]:
-            try:
-                async for chunk in restore_stream(events, session.vault, report):
-                    yield chunk
-            finally:
-                await upstream.aclose()
-
-        # The report's unissued count is final only once the stream has ended.
-        done = BackgroundTask(self._log, session_id, session, report)
-        return StreamingResponse(
-            body(), upstream.status_code, self._headers(upstream, report), background=done
-        )
+        body = restore_stream(events, session.vault, report)
+        response = _StreamedResponse(body, upstream.status_code, self._headers(upstream, report))
+        # Run last to first: the report's unissued count is final only once the body is closed.
+        response.on_end.callback(self._log, session_id, session, report)
+        response.on_end.push_async_callback(upstream.aclose)
+        response.on_end.push_async_callback(body.aclose)
+        return response
 
     def _headers(self, upstream: httpx.Response, report: ScrubReport) -> dict[str, str]:
         return _response_headers(upstream) | {SCRUB_HEADER: report.header_value()}
@@ -230,6 +292,29 @@ async def _read_and_close(upstream: httpx.Response) -> bytes:
         return await upstream.aread()
     finally:
         await upstream.aclose()
+
+
+async def _fed_to(
+    trace: RequestTrace, leg: Leg, events: AsyncIterator[ServerSentEvent]
+) -> AsyncIterator[ServerSentEvent]:
+    async for event in events:
+        trace.feed(leg, event)
+        yield event
+
+
+class _StreamedResponse(StreamingResponse):
+    """Runs its `on_end` steps once the response ends, however it ends. A step in the body's
+    `finally` would not do: on a client disconnect Starlette abandons the body where it is, to
+    be finalized only by the garbage collector, and a body never started has no `finally` to run.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.on_end = AsyncExitStack()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async with self.on_end:
+            await super().__call__(scope, receive, send)
 
 
 async def _not_found(request: Request, exc: Exception) -> Response:

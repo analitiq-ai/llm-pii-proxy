@@ -9,8 +9,10 @@ Each line of a trace file is one JSON object, UTF-8, ending in `\n`. Field rules
 
 - Keys appear in the order above.
 - `time` is ISO 8601 UTC with milliseconds and a `Z` suffix.
-- A streamed `upstream_in` or `client_out` payload has the shape of a non-streamed Messages API response
-  (research R3).
+- `status` is always an integer: on upstream legs Anthropic's status, or 502 when Anthropic was unreachable
+  (research R8).
+- A streamed `upstream_in` or `client_out` payload has the shape of a non-streamed Messages API response, plus
+  an `error` key when the stream carried an `error` event (research R3).
 
 ## Files
 

@@ -5,6 +5,7 @@ Each run uses a new session and distinct content, so the leaf cache never helps.
 """
 
 import json
+import os
 import statistics
 import time
 
@@ -13,6 +14,8 @@ import pytest
 
 from llm_pii_proxy.detection.gitleaks import SecretDetector
 from llm_pii_proxy.detection.presidio import PresidioDetector
+from llm_pii_proxy.tracing.file_tap import FileTap
+from llm_pii_proxy.tracing.record import Leg
 from tests.conftest import FIXTURES
 from tests.fixtures.filler import stdlib_code
 from tests.integration.conftest import SESSION
@@ -95,3 +98,49 @@ async def test_worst_case_and_100kb_recorded(proxy):
     report("20 KB all PII", await first_byte_times(proxy, contents(20_000, RUNS, 0)))
     texts = contents(100_000, RUNS, CODE_PER_RECORD)
     report("100 KB typical (SC-004: about 2.3 s)", await first_byte_times(proxy, texts))
+
+
+TRACED_STREAM = b"".join(
+    f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
+    for event in (
+        {"type": "message_start", "message": {"id": "m", "role": "assistant", "content": []}},
+        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "ok"}},
+        {"type": "content_block_stop", "index": 0},
+        {"type": "message_stop"},
+    )
+)
+
+
+async def full_response_time(proxy, content: str, session: str) -> float:
+    body = {"model": "m", "stream": True, "messages": [{"role": "user", "content": content}]}
+    start = time.perf_counter()
+    r = await proxy.post("/v1/messages", json=body, headers={"x-claude-code-session-id": session})
+    elapsed = time.perf_counter() - start
+    assert r.status_code == 200
+    return elapsed
+
+
+async def test_tracing_adds_under_5ms_at_100kb(make_proxy, regex_detector, upstream, tmp_path):
+    # SC-005. Tracing's cost does not depend on the detectors; the regex detector keeps scrubbing
+    # fast so a few milliseconds stand out of the noise. Records are written after the last chunk,
+    # so the time to the full response includes them.
+    upstream.post("/v1/messages").mock(
+        side_effect=lambda request: httpx.Response(
+            200, content=TRACED_STREAM, headers={"content-type": "text/event-stream"}
+        )
+    )
+    tap = FileTap.open(tmp_path / "traces", 3600, os.getuid())
+    proxies = {
+        "off": make_proxy([regex_detector]),
+        "on": make_proxy([regex_detector], tap=tap, trace_legs=frozenset(Leg)),
+    }
+    (content,) = contents(100_000, 1, CODE_PER_RECORD)
+    times: dict[str, list[float]] = {"off": [], "on": []}
+    for i in range(RUNS * 3):
+        for name, proxy in proxies.items():
+            times[name].append(await full_response_time(proxy, content, f"{name}-{i}"))
+    added = report("100 KB traced", times["on"]) - report("100 KB untraced", times["off"])
+    print(f"added by tracing: {added * 1000:.2f} ms")
+    assert len(list((tmp_path / "traces").glob("*.jsonl"))) == RUNS * 3
+    assert added < 0.005

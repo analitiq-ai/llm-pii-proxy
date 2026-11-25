@@ -50,7 +50,9 @@
   selection, keeps the `*.jsonl` files at the top level of the picked directory (one pure function,
   shared with the tests), reads each file on its own straight away, and then clears the input, so
   picking the same directory again is a new pick with new files (FR-011). A file whose read fails is
-  listed in the file report with the error's name; the other files are still shown.
+  listed in the file report with the error's name; the other files are still shown. Only the latest
+  pick may change the page: a pick started while an earlier one's reads are still running makes those
+  reads' results stale, so a slow pick never overwrites or mixes into a newer one.
 - **Rationale**: the browser reads the files as the operator, so the 0700/0600 modes the proxy
   enforces stay as they are, and nothing is copied (FR-009). Supported by Chromium and Firefox.
   Chromium asks "Upload N files to this site?" before reading; nothing is uploaded, the page has no

@@ -36,6 +36,7 @@ cases below. In the viewer:
 | the same request, comparison first opened | unchanged parts collapsed; the "changed only" filter on, and turning it off shows the unchanged parts (FR-004) |
 | tracing with only `upstream_out,upstream_in` | each comparison shows the recorded payload alone and "not recorded" on the other side; nothing marked added or removed |
 | request rejected before forwarding: `curl` a body of `{` to `/v1/messages` | Sent shows `client_in`, the text `{`, with "not recorded"; Received shows "not recorded" twice |
+| the same with a body of `null`, then of `[]` | Sent shows `client_in` as `null`, then as an empty list, each with "not recorded" |
 | stream stopped mid-response (Ctrl-C in Claude Code) | the cut legs flagged incomplete in the list and the comparison |
 | a garbage line appended to a trace file | the file reported with one invalid line; every other request still listed |
 | a trace file made unreadable (`chmod 000`) | the file reported as unreadable with the error's name; every other request still listed |
@@ -46,6 +47,7 @@ cases below. In the viewer:
 | a valid trace file copied into a subdirectory, and a `.txt` file | neither read; the subdirectory's requests not listed |
 | another request sent in the same Claude Code session, directory picked again | the new request listed (its session file grew, no new file) |
 | another Claude Code session started, directory picked again | its requests listed |
+| a day of traces picked, then a directory holding one trace file picked before the list appears | only the second directory's requests and file report shown |
 | browser developer tools, Network tab, whole session | no request other than the page's own files from `127.0.0.1` (SC-003) |
 | browser developer tools, Application tab, after viewing requests | local storage, session storage, IndexedDB and cookies for `127.0.0.1:8765` empty (FR-009) |
 | a day of traces | listed in under 5 seconds (SC-004) |

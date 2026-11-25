@@ -9,7 +9,7 @@ One valid line of a trace file.
 
 | Field | From the line | Rule |
 |---|---|---|
-| `file` | the file's name | |
+| `file` | the trace file's name (§ Trace files) | |
 | `time` | `time` | string that parses as a date; kept as written for display |
 | `sessionId` | `session_id` | string, or null for "no session" |
 | `requestId` | `request_id` | non-empty string |
@@ -25,16 +25,17 @@ recorded as its text, so a payload can be a string. Anything else,
 including a line cut short, counts as invalid for its file (FR-007). Empty lines are not records and
 not invalid.
 
-## File report
-
 ## Trace files
 
-The files of a pick that are read: those ending `.jsonl` directly inside the picked directory, by
-their path relative to it. Files in subdirectories and other files are ignored (FR-001).
+The files of a pick that are read. The directory input gives each picked file a path that starts
+with the picked directory's name (`traces/a.jsonl`); a trace file is one whose path has exactly two
+parts, the second ending `.jsonl`. Files in subdirectories and other files are ignored (FR-001). A
+trace file's name is the second part (`a.jsonl`): records and the file report carry it, so they do
+not depend on what the picked directory is called.
 
 ## File report
 
-Per trace file: its name, and either how many invalid lines it has or, when it could not be read,
+Per trace file: its name (§ Trace files), and either how many invalid lines it has or, when it could not be read,
 the name of the read error (research R4). Shown when any file has an invalid line or failed to read.
 
 ## Traced request

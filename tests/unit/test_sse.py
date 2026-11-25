@@ -143,6 +143,11 @@ def test_encode_writes_one_event_with_every_field():
     )
 
 
+def test_encode_writes_no_id_for_an_event_without_one():
+    # httpx_sse gives an event without an id line an empty id, not None.
+    assert encode(ServerSentEvent(event="ping", data="{}")) == b"event: ping\ndata: {}\n\n"
+
+
 async def test_closing_the_stream_closes_its_source():
     closed = False
 

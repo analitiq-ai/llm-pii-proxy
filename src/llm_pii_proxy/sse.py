@@ -52,7 +52,7 @@ def encode(event: ServerSentEvent) -> bytes:
     lines = []
     if event.event:
         lines.append(f"event: {event.event}")
-    if event.id is not None:
+    if event.id:
         lines.append(f"id: {event.id}")
     if event.retry is not None:
         lines.append(f"retry: {event.retry}")

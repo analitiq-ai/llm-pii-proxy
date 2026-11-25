@@ -15,6 +15,16 @@ from llm_pii_proxy.tracing.record import Leg, TraceRecord
 ROOT = Path(__file__).parents[2]
 VENDOR = ROOT / "viewer" / "vendor" / "json-diff-viewer"
 PINNED_FILES = {"viewer.js", "diff.js", "styles.js", "LICENSE"}
+BLOCKED_MARKUP_APIS = (
+    "innerHTML",
+    "outerHTML",
+    "insertAdjacentHTML",
+    "document.write",
+    "setHTMLUnsafe",
+    "DOMParser",
+    "createContextualFragment",
+    "srcdoc",
+)
 
 
 def test_vendored_component_matches_its_pins():
@@ -116,3 +126,16 @@ def test_viewer_reads_what_the_proxy_writes(tmp_path):
     assert [c["shownAs"] for c in anonymous["comparisons"]] == ["single", "none"]
     assert hashed["comparisons"][1]["sides"][0]["payload"] == [1, None]
     assert summary["invalid"] == [{"name": "s-1.jsonl", "invalidLines": 1}]
+
+
+def test_viewer_scripts_are_the_listed_three_and_contain_no_blocked_markup_api_name():
+    """A source scan, not proof: it fails when a new script appears or one of BLOCKED_MARKUP_APIS
+    is written literally in traces.js, tree.js or app.js."""
+    viewer = ROOT / "viewer"
+    scripts = {p.relative_to(viewer).as_posix() for p in viewer.rglob("*.js")}
+    own = {s for s in scripts if not s.startswith("vendor/")}
+    assert own == {"traces.js", "tree.js", "app.js"}
+    for name in sorted(own):
+        source = (viewer / name).read_text()
+        for api in BLOCKED_MARKUP_APIS:
+            assert api not in source, f"{name} uses {api}"

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trace viewer</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
+  body { margin: 0 auto; padding: 1rem; max-width: 1600px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #8884; vertical-align: top; }
+  tr.request { cursor: pointer; }
+  tr.request:hover, tr.request:focus { background: #8882; }
+  tr.selected { background: #38bdf833; }
+  .leg { display: inline-block; margin-right: 0.75rem; font-family: monospace; }
+  .flag { margin-left: 0.4rem; padding: 0 4px; border-radius: 4px; background: #8883; font-size: 12px; }
+  .incomplete, .duplicate, .unreadable, .invalid { color: #d97706; }
+  #requests { max-height: 40vh; overflow: auto; }
+  .comparison { margin-top: 1rem; }
+  .side-labels { display: grid; grid-template-columns: 1fr 1fr; font-family: monospace; margin-bottom: 4px; }
+  json-diff-viewer { height: 70vh; }
+  .single { max-height: 70vh; overflow: auto; font-family: monospace; }
+  .tree-node > :not(summary), .tree-leaf { padding-left: 1.25rem; }
+  .tree-text { white-space: pre-wrap; margin: 0; }
+  .key { color: #0284c7; }
+  .empty { color: #888; }
+</style>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<h1>Trace viewer</h1>
+<label>Trace directory <input id="picker" type="file" webkitdirectory></label>
+<ul id="file-report"></ul>
+<div id="requests"></div>
+<div id="detail"></div>
+</body>
+</html>

@@ -206,25 +206,42 @@ function sentPair(left, right) {
   return comparisons(request)[0];
 }
 
-test("comparisons shows a pair side by side, with the paths, where the diff component would hide a value", () => {
-  const cases = [
-    [null, { a: 1 }, ["root"]],
-    [{ a: 1 }, null, ["root"]],
-    [null, null, ["root"]],
-    [{ content: [{ text: "x" }] }, { content: "x" }, ["root.content"]],
-    [{ a: { b: [1] }, c: "x" }, { a: { b: { 0: 1 } }, c: 2 }, ["root.a.b"]],
-    [{ a: 1 }, "{", ["root"]],
-    [[1], { 0: 1 }, ["root"]],
-    ["x", [1], ["root"]],
+test("comparisons gives the diff JSON text in place of a value it cannot draw, and names those paths", () => {
+  const nested = sentPair({ a: { b: [1] }, c: "x" }, { a: { b: { 0: 1 } }, c: 2 });
+  assert.equal(nested.shownAs, "diff");
+  assert.deepEqual(nested.diffInput, {
+    left: { a: { b: "[1]" }, c: "x" },
+    right: { a: { b: '{"0":1}' }, c: 2 },
+    substitutedPaths: ["root.a.b"],
+  });
+
+  const content = sentPair({ content: [{ text: "x" }], id: 1 }, { content: "x", id: 1 });
+  assert.deepEqual(content.diffInput, {
+    left: { content: '[{"text":"x"}]', id: 1 },
+    right: { content: '"x"', id: 1 },
+    substitutedPaths: ["root.content"],
+  });
+
+  const roots = [
+    [null, { a: 1 }],
+    [{ a: 1 }, null],
+    [null, null],
+    [{ a: 1 }, "{"],
+    [[1], { 0: 1 }],
+    ["x", [1]],
   ];
-  for (const [left, right, paths] of cases) {
+  for (const [left, right] of roots) {
     const sent = sentPair(left, right);
-    assert.equal(sent.shownAs, "side by side", JSON.stringify([left, right]));
-    assert.deepEqual(sent.typeMismatches, paths, JSON.stringify([left, right]));
+    assert.equal(sent.shownAs, "diff", JSON.stringify([left, right]));
+    assert.deepEqual(
+      sent.diffInput,
+      { left: JSON.stringify(left), right: JSON.stringify(right), substitutedPaths: ["root"] },
+      JSON.stringify([left, right]),
+    );
   }
 });
 
-test("comparisons keeps the diff where both sides render: scalars of any type and keys on one side", () => {
+test("comparisons gives the diff the payloads unchanged where it draws both sides", () => {
   const cases = [
     [{ a: null }, { a: 1 }],
     [{ a: "x" }, { a: false }],
@@ -235,6 +252,20 @@ test("comparisons keeps the diff where both sides render: scalars of any type an
   for (const [left, right] of cases) {
     const sent = sentPair(left, right);
     assert.equal(sent.shownAs, "diff", JSON.stringify([left, right]));
-    assert.deepEqual(sent.typeMismatches, [], JSON.stringify([left, right]));
+    assert.deepEqual(sent.diffInput, { left, right, substitutedPaths: [] }, JSON.stringify([left, right]));
   }
+});
+
+test("comparisons gives no diff input to a comparison that is single, none or duplicate", () => {
+  const rejected = groupRequests(records(line({ status: 400 })))[0];
+  const duplicated = groupRequests(records(line(), line(), line({ leg: "upstream_out" })))[0];
+  assert.deepEqual(
+    [...comparisons(rejected), ...comparisons(duplicated)].map((c) => [c.shownAs, c.diffInput]),
+    [
+      ["single", null],
+      ["none", null],
+      ["duplicate", null],
+      ["none", null],
+    ],
+  );
 });

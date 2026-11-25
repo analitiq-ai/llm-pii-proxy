@@ -5,12 +5,19 @@ import asyncio
 import base64
 import copy
 import json
+import os
 
 import httpx
 import pytest
 import respx
 
-from llm_pii_proxy.errors import BadRequest, ConfidentialInvalid, ConfidentialUnavailable
+from llm_pii_proxy import media as media_module
+from llm_pii_proxy.errors import (
+    BadRequest,
+    ConfidentialInvalid,
+    ConfidentialUnavailable,
+    ProxyError,
+)
 from llm_pii_proxy.media import MediaConverter, convert_media, render_pdf
 from tests.pdf import make_pdf
 
@@ -101,6 +108,7 @@ def converter(client, concurrency: int = 4, cache_entries: int = 16) -> MediaCon
         vision_model=VISION_MODEL,
         concurrency=concurrency,
         cache_entries=cache_entries,
+        render_timeout_s=10,
     )
 
 
@@ -183,7 +191,7 @@ async def test_a_document_image_is_described_and_read(privatemode, client):
 
 async def page_labels(pages: list[str]) -> dict[str, str]:
     """Each rendered page's data URL mapped to its 1-based page label."""
-    rendered = await render_pdf(make_pdf(pages))
+    rendered = await render_pdf(make_pdf(pages), timeout_s=10)
     return {
         f"data:image/png;base64,{base64.b64encode(png).decode()}": f"md of page {i}"
         for i, png in enumerate(rendered, 1)
@@ -327,8 +335,23 @@ async def test_request_bodies(client):
         (httpx.Response(500, text="an invoice for Jane"), ConfidentialUnavailable),
         (completion("Jane Doe, not json"), ConfidentialInvalid),
         (completion(json.dumps({"document": "yes", "description": "Jane"})), ConfidentialInvalid),
+        (
+            httpx.Response(200, json={"choices": [{"message": {"content": None}}]}),
+            ConfidentialInvalid,
+        ),
+        (httpx.Response(200, json={"error": "Jane"}), ConfidentialInvalid),
+        (httpx.Response(200, text="Jane, not an envelope"), ConfidentialInvalid),
     ],
-    ids=["timeout", "transport", "http 500", "not json", "wrong schema"],
+    ids=[
+        "timeout",
+        "transport",
+        "http 500",
+        "not json",
+        "wrong schema",
+        "null content",
+        "no choices",
+        "body not json",
+    ],
 )
 async def test_privatemode_failures_reject_without_content(client, failure, error):
     with respx.mock(base_url=PRIVATEMODE) as router:
@@ -345,3 +368,70 @@ async def test_a_request_with_more_distinct_blocks_than_the_cache_holds(privatem
     )
     assert converted == 2
     assert out["messages"][0]["content"][1]["type"] == "text"
+
+
+async def test_overlapping_requests_share_one_conversion(privatemode, client):
+    privatemode.delay = lambda url: 0.05
+    media = converter(client)
+    (first, _), (second, _) = await asyncio.gather(
+        convert_media(body(image()), media), convert_media(body(image()), media)
+    )
+    assert first == second
+    assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 1}
+
+
+@pytest.mark.parametrize(
+    "source,named",
+    [
+        ({"type": "base64", "media_type": "image/png", "data": 1}, "data"),
+        ({"type": "base64", "media_type": "image/png"}, "data"),
+        ({"type": "base64", "media_type": "image/png", "data": ""}, "data"),
+        ({"type": "base64", "media_type": {}, "data": PNG}, "media type"),
+        ({"type": "base64", "data": PNG}, "media type"),
+    ],
+    ids=[
+        "data not a string",
+        "data missing",
+        "data empty",
+        "media type not a string",
+        "media type missing",
+    ],
+)
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_malformed_blocks_are_refused(privatemode, client, source, named, enabled):
+    block = {"type": "image", "source": source}
+    with pytest.raises(BadRequest, match=named):
+        await convert_media(body(block), converter(client) if enabled else None)
+    assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 0}
+
+
+@pytest.mark.parametrize("source_type", ["url", "file", "base64"])
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_a_binary_source_on_another_block_type_is_refused_naming_it(
+    privatemode, client, source_type, enabled
+):
+    block = {"type": "container_upload", "source": {"type": source_type, "data": PNG}}
+    with pytest.raises(BadRequest, match="container_upload"):
+        await convert_media(body(block), converter(client) if enabled else None)
+
+
+async def test_an_unexpected_failure_becomes_a_proxy_error_without_content(
+    privatemode, client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(media_module, "PDFTOPPM", str(tmp_path / "missing-pdftoppm"))
+    with pytest.raises(ProxyError) as raised:
+        await convert_media(body(pdf(["Jane"])), converter(client))
+    assert raised.value.cause == "media conversion failed (FileNotFoundError)"
+
+
+async def test_a_pdf_render_that_overruns_is_killed_and_refused(client, monkeypatch, tmp_path):
+    slow = tmp_path / "slow-pdftoppm"
+    pid_file = tmp_path / "pid"
+    slow.write_text(f"#!/bin/sh\necho $$ > {pid_file}\nexec sleep 30\n")
+    slow.chmod(0o700)
+    monkeypatch.setattr(media_module, "PDFTOPPM", str(slow))
+    with pytest.raises(BadRequest, match="PDF could not be rendered"):
+        await render_pdf(make_pdf(["a"]), timeout_s=0.3)
+    pid = int(pid_file.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)

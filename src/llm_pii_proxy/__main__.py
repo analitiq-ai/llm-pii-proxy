@@ -57,6 +57,7 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
             vision_model=settings.media_vision_model,
             concurrency=settings.media_concurrency,
             cache_entries=settings.media_cache_entries,
+            render_timeout_s=settings.confidential_timeout_s,
         )
     file_tap = _open_trace_output(settings)
     tap: Tap = NullTap() if file_tap is None else file_tap

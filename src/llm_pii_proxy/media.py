@@ -6,6 +6,7 @@ The text holds the real values the image or PDF did; the scrub that follows repl
 import asyncio
 import base64
 import binascii
+import functools
 import hashlib
 import json
 import shutil
@@ -19,8 +20,9 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from llm_pii_proxy.errors import BadRequest, ConfidentialInvalid, ProxyError
+from llm_pii_proxy.errors import BadRequest, ConfidentialInvalid, ProxyError, as_proxy_error
 from llm_pii_proxy.privatemode import complete
+from llm_pii_proxy.processes import kill_process
 from llm_pii_proxy.walker import apply_binary_blocks, collect_binary_blocks
 
 PDFTOPPM = "pdftoppm"
@@ -84,14 +86,14 @@ async def convert_media(
     blocks = collect_binary_blocks(body)
     if not blocks:
         return body, 0
-    if any(block["source"]["type"] != "base64" for block in blocks):
-        raise BadRequest("image and PDF blocks given by URL or file id are not supported")
+    media = [_validate(block) for block in blocks]
     if converter is None:
         raise BadRequest(
             "images and PDFs are not forwarded; set PII_PROXY_MEDIA_ENABLED=true to convert them "
             "to text on Privatemode"
         )
-    replacements = await converter.convert(blocks)
+    converted = await converter.convert(media)
+    replacements = [_text_block(b, c) for b, c in zip(blocks, converted, strict=True)]
     return apply_binary_blocks(body, replacements), len(blocks)
 
 
@@ -104,6 +106,7 @@ class MediaConverter:
         vision_model: str,
         concurrency: int,
         cache_entries: int,
+        render_timeout_s: float,
     ) -> None:
         self._client = client
         self._ocr_model = ocr_model
@@ -111,37 +114,46 @@ class MediaConverter:
         self._slots = asyncio.Semaphore(concurrency)
         self._cache: OrderedDict[str, _Converted] = OrderedDict()
         self._cache_entries = cache_entries
+        self._render_timeout_s = render_timeout_s
+        # One task per conversion still running, shared by every request holding the same block.
+        self._running: dict[str, asyncio.Task[_Converted]] = {}
 
-    async def convert(self, blocks: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-        """A text block for each of `blocks`, all base64 sources."""
-        media = [_decode(block) for block in blocks]
-        found = {m.key: hit for m in media if (hit := self._cached(m.key)) is not None}
-        # A block repeated within the request converts once.
-        missing = {m.key: m for m in media if m.key not in found}
-        try:
-            async with asyncio.TaskGroup() as group:
-                tasks = {key: group.create_task(self._convert(m)) for key, m in missing.items()}
-        except* ProxyError as failures:
-            raise failures.exceptions[0] from None
-        for key, task in tasks.items():
-            found[key] = task.result()
-            self._store(key, found[key])
-        return [_text_block(block, found[m.key]) for block, m in zip(blocks, media, strict=True)]
+    async def convert(self, media: Sequence[_Media]) -> list[_Converted]:
+        unique = {m.key: m for m in media}
+        results = await asyncio.gather(
+            *(self._converted(m) for m in unique.values()), return_exceptions=True
+        )
+        failures = [r for r in results if isinstance(r, BaseException)]
+        if failures:
+            first = next((f for f in failures if isinstance(f, ProxyError)), failures[0])
+            raise as_proxy_error(first, _PURPOSE)
+        by_key = {k: r for k, r in zip(unique, results, strict=True) if isinstance(r, _Converted)}
+        return [by_key[m.key] for m in media]
 
-    def _cached(self, key: str) -> "_Converted | None":
-        hit = self._cache.get(key)
+    async def _converted(self, media: _Media) -> _Converted:
+        hit = self._cache.get(media.key)
         if hit is not None:
-            self._cache.move_to_end(key)
-        return hit
+            self._cache.move_to_end(media.key)
+            return hit
+        task = self._running.get(media.key)
+        if task is None:
+            task = asyncio.create_task(self._convert(media))
+            self._running[media.key] = task
+            task.add_done_callback(functools.partial(self._finished, media.key))
+        # Shielded: one request going away must not cancel a conversion others are waiting on.
+        return await asyncio.shield(task)
 
-    def _store(self, key: str, converted: "_Converted") -> None:
-        self._cache[key] = converted
+    def _finished(self, key: str, task: "asyncio.Task[_Converted]") -> None:
+        del self._running[key]
+        if task.cancelled() or task.exception() is not None:
+            return
+        self._cache[key] = task.result()
         while len(self._cache) > self._cache_entries:
             self._cache.popitem(last=False)
 
-    async def _convert(self, media: _Media) -> "_Converted":
+    async def _convert(self, media: _Media) -> _Converted:
         if media.kind == "document":
-            pages = await render_pdf(media.data)
+            pages = await render_pdf(media.data, self._render_timeout_s)
             markdown = await asyncio.gather(*(self._ocr("image/png", page) for page in pages))
             return _Converted(tuple(markdown))
         answer = await self._describe(media)
@@ -195,7 +207,7 @@ class MediaConverter:
         return content
 
 
-async def render_pdf(data: bytes) -> list[bytes]:
+async def render_pdf(data: bytes, timeout_s: float) -> list[bytes]:
     """Each page of the PDF `data` as a PNG, in page order. The PDF is passed on stdin; only the
     page images touch disk, in a private temporary directory removed on return."""
     with tempfile.TemporaryDirectory(prefix="pii-proxy-pdf-") as directory:
@@ -210,7 +222,13 @@ async def render_pdf(data: bytes) -> list[bytes]:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
-        await process.communicate(data)
+        try:
+            await asyncio.wait_for(process.communicate(data), timeout_s)
+        except TimeoutError:
+            raise BadRequest("PDF could not be rendered") from None
+        finally:
+            # Also on cancellation: the directory is removed next, so the renderer must be gone.
+            await kill_process(process)
         # pdftoppm zero-pads page numbers to one width, so name order is page order.
         pages = sorted(Path(directory).glob("page-*.png"))
         if process.returncode != 0 or not pages:
@@ -218,19 +236,24 @@ async def render_pdf(data: bytes) -> list[bytes]:
         return [page.read_bytes() for page in pages]
 
 
-def _decode(block: dict[str, Any]) -> _Media:
+def _validate(block: dict[str, Any]) -> _Media:
+    """The block's decoded content, or the 400 naming the first thing wrong with it."""
     kind = block.get("type")
-    media_type = block["source"].get("media_type")
-    if kind == "image":
-        if media_type not in IMAGE_TYPES:
-            raise BadRequest(f"image media type {media_type} is not supported")
-    elif kind == "document":
-        if media_type != PDF:
-            raise BadRequest(f"document media type {media_type} is not supported")
-    else:
+    if kind not in ("image", "document"):
         raise BadRequest(f"{kind} blocks with a binary source are not supported")
+    source = block["source"]
+    if source["type"] != "base64":
+        raise BadRequest("image and PDF blocks given by URL or file id are not supported")
+    media_type = source.get("media_type")
+    if not isinstance(media_type, str):
+        raise BadRequest(f"{kind} block media type is missing or not a string")
+    if media_type not in (IMAGE_TYPES if kind == "image" else {PDF}):
+        raise BadRequest(f"{kind} media type {media_type} is not supported")
+    encoded = source.get("data")
+    if not isinstance(encoded, str) or not encoded:
+        raise BadRequest(f"{kind} block data is missing, empty or not a string")
     try:
-        data = base64.b64decode(block["source"].get("data", ""), validate=True)
+        data = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError):
         raise BadRequest(f"{kind} block data is not valid base64") from None
     key = hashlib.sha256(media_type.encode() + b"\0" + data).hexdigest()

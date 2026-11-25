@@ -18,9 +18,9 @@ from llm_pii_proxy.errors import (
     BadRequest,
     ProxyError,
     RouteNotFound,
-    ScrubFailed,
     UnsupportedEncoding,
     UpstreamUnavailable,
+    as_proxy_error,
 )
 from llm_pii_proxy.media import MediaConverter, convert_media
 from llm_pii_proxy.notice import with_notice
@@ -177,7 +177,7 @@ class _Proxy:
         results = await session.scrub_leaves(leaves.texts, self._pipeline, report)
         failures = [r for r in results if isinstance(r, Exception)]
         if failures:
-            raise _as_proxy_error(failures[0])
+            raise as_proxy_error(failures[0], "local scrubbing")
         scrubbed = apply_leaves(body, [r for r in results if isinstance(r, str)])
         return session_id, session, report, with_notice(scrubbed)
 
@@ -272,14 +272,6 @@ def _has_assistant_turns(body: dict[str, Any]) -> bool:
     return any(
         isinstance(m, dict) and m.get("role") == "assistant" for m in body.get("messages", [])
     )
-
-
-def _as_proxy_error(failure: Exception) -> ProxyError:
-    if isinstance(failure, ProxyError):
-        return failure
-    # The cause names only the error type: its message may quote request content.
-    log.error("local scrubbing failed: %s", type(failure).__name__)
-    return ScrubFailed(f"local scrubbing failed ({type(failure).__name__})")
 
 
 def _request_headers(request: Request) -> list[tuple[str, str]]:

@@ -73,6 +73,7 @@ async def convert() -> int:
             vision_model=settings.media_vision_model,
             concurrency=settings.media_concurrency,
             cache_entries=settings.media_cache_entries,
+            render_timeout_s=settings.confidential_timeout_s,
         )
         request = body(blocks(pdf, b"")[:1])
         start = time.monotonic()
@@ -100,7 +101,7 @@ def binary_blocks(node: object) -> Iterator[str]:
 
 async def send(capture: Path) -> int:
     pdf = make_pdf(PAGES)
-    png = (await render_pdf(make_pdf(PAGES[:1])))[0]
+    png = (await render_pdf(make_pdf(PAGES[:1]), Settings().confidential_timeout_s))[0]
     headers = {
         "x-api-key": os.environ["ANTHROPIC_API_KEY"],
         "anthropic-version": "2023-06-01",

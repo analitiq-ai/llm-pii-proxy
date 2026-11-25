@@ -8,6 +8,7 @@ import httpx
 import pytest
 import respx
 
+from llm_pii_proxy.detection.confidential import ConfidentialDetector
 from llm_pii_proxy.media import MediaConverter
 from tests.integration.conftest import SESSION, message_response, sent
 from tests.pdf import make_pdf
@@ -71,6 +72,7 @@ def converter(client: httpx.AsyncClient) -> MediaConverter:
         vision_model="glm-5.3-flash",
         concurrency=4,
         cache_entries=8,
+        render_timeout_s=10,
     )
 
 
@@ -218,3 +220,33 @@ async def test_without_conversion_a_base64_block_is_refused_naming_the_setting(
     assert r.status_code == 400
     assert "PII_PROXY_MEDIA_ENABLED" in r.json()["error"]["message"]
     assert not upstream_ok.calls
+
+
+async def test_converted_text_reaches_the_confidential_pass(
+    make_proxy, regex_detector, media_client, upstream_ok
+):
+    phrase = "the only left-handed cardiologist in Tralee"
+    confidential_seen: list[str] = []
+
+    def answer(request_: httpx.Request) -> httpx.Response:
+        sent_ = json.loads(request_.content)
+        if sent_["model"] == "glm-5.3-flash":
+            return completion(
+                json.dumps({"document": False, "description": f"A photo of {phrase}"})
+            )
+        confidential_seen.append(sent_["messages"][1]["content"])
+        return completion(json.dumps({"findings": [{"text": phrase}]}))
+
+    proxy = make_proxy(
+        [regex_detector],
+        confidential=ConfidentialDetector(media_client, "gpt-oss-120b", 24_000, 4),
+        media=converter(media_client),
+    )
+    with respx.mock(base_url=PRIVATEMODE) as router:
+        router.post("/v1/chat/completions").mock(side_effect=answer)
+        r = await proxy.post("/v1/messages", json=request(image()), headers=SESSION)
+    assert r.status_code == 200
+    assert any(phrase in text for text in confidential_seen)
+    first = sent(upstream_ok)["messages"][0]["content"][0]["text"]
+    assert phrase not in first
+    assert "A photo of PII_CONTEXT_0001" in first

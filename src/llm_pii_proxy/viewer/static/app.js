@@ -1,14 +1,14 @@
-// The page: reads a picked trace directory and shows its requests and their comparisons. Every piece
-// of trace text reaches the page through textContent or the diff component, which escapes it.
+// The page: loads the configured trace directory from the viewer's server and shows its requests and
+// their comparisons. Every piece of trace text reaches the page through textContent or the diff
+// component, which escapes it.
 import "./vendor/json-diff-viewer/viewer.js";
-import { comparisons, groupRequests, parseTraceFile, payloadOf, traceFiles } from "./traces.js";
+import { comparisons, groupRequests, parseTraceFile, payloadOf } from "./traces.js";
 import { renderTree } from "./tree.js";
 
-const picker = document.getElementById("picker");
+const status = document.getElementById("status");
 const fileReport = document.getElementById("file-report");
 const list = document.getElementById("requests");
 const detail = document.getElementById("detail");
-let latestPick = 0;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -17,46 +17,31 @@ function element(tag, className, text) {
   return node;
 }
 
-async function read(file, name) {
-  try {
-    return { name, text: await file.text() };
-  } catch (error) {
-    // A picked file is a snapshot: one changed or removed since the pick fails its read.
-    if (error instanceof DOMException) return { name, error: error.name };
-    throw error;
+async function load() {
+  const response = await fetch("traces", { cache: "no-store" });
+  if (!response.ok) {
+    status.textContent = `Could not read the trace directory (HTTP ${response.status}).`;
+    return;
   }
-}
-
-picker.addEventListener("change", async () => {
-  const picked = [...picker.files];
-  // Cleared before any read, so picking the same directory again is a change too.
-  picker.value = "";
-  const pick = ++latestPick;
-  fileReport.replaceChildren();
-  list.replaceChildren();
-  detail.replaceChildren();
-
-  const byPath = new Map(picked.map((file) => [file.webkitRelativePath, file]));
-  const results = await Promise.all(
-    traceFiles([...byPath.keys()]).map(({ path, name }) => read(byPath.get(path), name)),
-  );
-  if (pick !== latestPick) return;
-
   const records = [];
-  for (const result of results) {
-    if (result.error) {
-      fileReport.append(element("li", "unreadable", `${result.name}: unreadable (${result.error})`));
+  for (const file of (await response.json()).files) {
+    if (file.error) {
+      fileReport.append(element("li", "unreadable", `${file.name}: unreadable (${file.error})`));
       continue;
     }
-    const parsed = parseTraceFile(result.name, result.text);
+    const parsed = parseTraceFile(file.name, file.text);
     records.push(...parsed.records);
     if (parsed.invalidLines) {
       fileReport.append(
-        element("li", "invalid", `${result.name}: ${parsed.invalidLines} line(s) not trace records`),
+        element("li", "invalid", `${file.name}: ${parsed.invalidLines} line(s) not trace records`),
       );
     }
   }
   showList(groupRequests(records));
+}
+
+load().catch((error) => {
+  status.textContent = `Could not load traces: ${error.message}`;
 });
 
 function legSummary(request) {

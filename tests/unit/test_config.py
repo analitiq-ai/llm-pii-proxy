@@ -149,3 +149,12 @@ def test_trace_dir_made_absolute(monkeypatch, tmp_path):
 def test_trace_ttl_must_be_positive(ttl):
     with pytest.raises(ValidationError, match="greater than 0"):
         Settings(trace_ttl_h=ttl)
+
+
+def test_viewer_port_defaults_to_8765_and_reads_its_variable(monkeypatch):
+    assert Settings().viewer_port == 8765
+    monkeypatch.setenv("PII_PROXY_VIEWER_PORT", "9000")
+    assert Settings().viewer_port == 9000
+    monkeypatch.setenv("PII_PROXY_VIEWER_PORT", "0")
+    with pytest.raises(ValidationError):
+        Settings()

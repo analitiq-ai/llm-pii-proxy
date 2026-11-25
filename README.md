@@ -161,19 +161,20 @@ a warning naming the legs and the directory, and saying so when real values are 
 
 ### Trace viewer
 
-`viewer/` is a page for reading traces. Serve it on loopback and open http://127.0.0.1:8765:
+Run it with the proxy's environment and open http://127.0.0.1:8765 (`PII_PROXY_VIEWER_PORT` changes
+the port):
 
 ```bash
-uv run python -m http.server 8765 --bind 127.0.0.1 --directory viewer
+uv run python -m llm_pii_proxy.viewer
 ```
 
-Pick the trace directory. The page lists its requests, newest first; select one to see two side-by-side
-comparisons: Sent (`client_in` against `upstream_out`: the replaced values and the notice the proxy adds
-to `system`) and Received (`upstream_in` against `client_out`: what was restored). A leg that was not
-recorded is labelled so, an incomplete one is flagged, and lines that are not trace records are counted per
-file. Pick the directory again to load new records. The browser reads the files itself; the page loads only
-its own files, and its Content-Security-Policy (`connect-src 'none'`) blocks script from sending requests.
-The policy cannot stop navigation, so the page writes trace content into the page only as text.
+It reads `PII_PROXY_TRACE_DIR`. The page lists its requests, newest first; select one to see two
+side-by-side comparisons: Sent (`client_in` against `upstream_out`: the replaced values and the notice the
+proxy adds to `system`) and Received (`upstream_in` against `client_out`: what was restored). A leg that
+was not recorded is labelled so, an incomplete one is flagged, and lines that are not trace records are
+counted per file. Reload the page to see new records. The viewer listens on 127.0.0.1 only and answers only
+requests addressed to `127.0.0.1:<port>`, so a website open in the same browser cannot read the traces.
+The page writes trace content into the page only as text.
 
 ## Limits
 

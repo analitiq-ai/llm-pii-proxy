@@ -1,4 +1,4 @@
-// What the viewer makes of trace files: which picked files are read, which lines are records, how
+// What the viewer makes of trace files: which lines are records, how
 // records group into requests and pair into comparisons. No DOM, so Node tests it as the page runs it.
 
 const LEGS = ["client_in", "upstream_out", "upstream_in", "client_out"];
@@ -6,14 +6,6 @@ const PAIRS = [
   ["Sent", "client_in", "upstream_out"],
   ["Received", "upstream_in", "client_out"],
 ];
-
-export function traceFiles(paths) {
-  return paths
-    .map((path) => ({ path, parts: path.split("/") }))
-    .filter(({ parts }) => parts.length === 2 && parts[1].endsWith(".jsonl"))
-    .map(({ path, parts }) => ({ path, name: parts[1] }))
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-}
 
 const RULES = {
   time: (v) => typeof v === "string" && !Number.isNaN(Date.parse(v)),

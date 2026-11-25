@@ -25,7 +25,7 @@
 ## R3. Carrying the access key
 
 - **Decision**: `secrets.token_urlsafe(32)` at each start. The printed address is
-  `http://<authority>/#key=<key>`, with the authority as data-model.md § Authority defines it; the page reads `location.hash` and sends
+  `http://<authority>/#key=<key>` (data-model.md § Authority); the page reads `location.hash` and sends
   `Authorization: Bearer <key>` on `GET /traces`. The server compares with `hmac.compare_digest`.
   The address is written to standard output with `print`, never through `logging`.
 - **Rationale**: a fragment is never sent to the server, so the page request carries no key and
@@ -38,9 +38,8 @@
 
 - **Decision**: bind `PII_PROXY_HOST`, already validated as a loopback IP literal; a new
   `PII_PROXY_VIEWER_PORT`, default 8765 (the port README uses today). A middleware refuses with 421
-  every request whose `Host` header is missing or not exactly `authority(host, port)` (data-model.md
-  § Authority), the string the browser sends for the printed address; the printed address is built
-  by the same function.
+  every request whose `Host` header is missing or not exactly the authority (data-model.md
+  § Authority): the string a browser sends for the printed address, which is built from it too.
 - **Rationale**: one loopback rule for both processes (FR-005). The exact Host match stops DNS
   rebinding (FR-007) as a second line behind the key: a page on another site that rebinds a name to
   127.0.0.1 sends that name as Host.
@@ -50,10 +49,9 @@
 ## R5. Serving files without request-chosen paths
 
 - **Decision**: at startup, list the files under `static/` into a fixed map of URL path to bytes and
-  content type; a request matches a key or gets 404. `GET /traces` returns the trace listing as
-  data-model.md § Trace listing defines it: `os.scandir`, so a directory gone after startup is a 500
-  (from its `OSError` only) and not an empty list; `O_NOFOLLOW | O_NONBLOCK` and `fstat` per file;
-  UTF-8 with `errors="replace"`.
+  content type; a request matches a key or gets 404. `GET /traces` returns the trace listing
+  (data-model.md § Trace listing), built with `os.scandir` because it raises where `glob` would
+  return nothing.
 - **Rationale**: no path from a request is ever joined to a directory (FR-008), so there is nothing to
   sanitise. The server, not the page, decides which files are trace files, so `traceFiles` leaves
   `traces.js`. One response keeps the page as simple as the picker version: it received all files at

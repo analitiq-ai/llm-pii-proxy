@@ -45,30 +45,39 @@ that makes it pass.
 
 **Independent Test**: quickstart.md, every step.
 
-- [ ] T006 [US1] Contract tests in `tests/integration/test_viewer_server.py` against `create_viewer_app(trace_dir, key, host, port)` with Starlette's `TestClient` (contracts/viewer-http.md, data-model.md):
-  - page files: `GET /` returns `index.html` as `text/html; charset=utf-8`; each file under `static/` at its relative path with its content type; `/../pyproject.toml`, `/%2e%2e/pyproject.toml`, `/vendor` and `/nope.js` 404; a file added to `static/` after the app is built 404.
-  - key: `GET /traces` without `Authorization`, with a wrong key, or with `Basic` returns 401 and an empty body.
-  - listing: with the key, files sorted by name, `text` for each 0600 `*.jsonl`; `subdir/x.jsonl` and `notes.txt` absent; a symlinked `*.jsonl` listed with `error` `OSError`, never its target's text; a directory named `d.jsonl` listed with `error` `NotARegularFile`; a FIFO `p.jsonl` (`os.mkfifo`) listed with `error` `NotARegularFile` without the request hanging, status 200; a file whose last line is cut inside a multi-byte character comes back with its earlier lines intact and the cut line replaced, so `parseTraceFile` counts exactly one invalid line; a file removed between listing and open (wrap `os.scandir` so it deletes one entry after listing) is `error` `FileNotFoundError` while the others keep their `text`, status 200.
-  - directory gone: `trace_dir` removed after the app is built gives 500 with body `{"error": "FileNotFoundError"}`, not an empty listing.
-  - authority: `authority("127.0.0.1", 8765)` is `127.0.0.1:8765`; `("::1", 8765)` and `("0:0:0:0:0:0:0:1", 8765)` are `[::1]:8765`; `("::ffff:127.0.0.1", 8765)` is `[::ffff:7f00:1]:8765`; `("127.0.0.1", 80)` is `127.0.0.1`. An app bound to `0:0:0:0:0:0:0:1` accepts `Host: [::1]:<port>`; one bound to port 80 accepts `Host: 127.0.0.1`.
-  - Host: `example.test:8765`, `127.0.0.1:9999`, `localhost:8765` and no Host header return 421 on `/` and `/traces`; `[::1]:<port>` accepted when bound to `::1`.
-  - `POST /traces` 405; every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`.
+- [ ] T006 [US1] Contract tests in `tests/integration/test_viewer_server.py` against `authority(host, port)` and `create_viewer_app(trace_dir, key, host, port)` with Starlette's `TestClient`. Each case below grades a rule of contracts/viewer-http.md or data-model.md; the rules are not restated here.
+  - authority: `("127.0.0.1", 8765)` → `127.0.0.1:8765`; `("::1", 8765)`, `("0:0:0:0:0:0:0:1", 8765)` and `("::1%lo", 8765)` → `[::1]:8765`; `("::ffff:127.0.0.1", 8765)` → `[::ffff:7f00:1]:8765`; `("127.0.0.1", 80)` → `127.0.0.1`.
+  - Host: `example.test:8765`, `127.0.0.1:9999`, `localhost:8765` and no Host header → 421 on `/` and `/traces`; an app bound to `0:0:0:0:0:0:0:1` accepts `[::1]:<port>`; one bound to port 80 accepts `127.0.0.1`.
+  - page files: `GET /` is `index.html` as `text/html; charset=utf-8`; each file under `static/` at its relative path with its content type; `/../pyproject.toml`, `/%2e%2e/pyproject.toml`, `/vendor`, `/nope.js` and a file added to `static/` after the app is built → 404.
+  - key: no `Authorization`, a wrong key, or `Basic` → 401, empty body.
+  - listing members: sorted by name; `subdir/x.jsonl` and `notes.txt` absent.
+  - per member: `text` for a 0600 `*.jsonl`; a symlinked `*.jsonl` → `error` `OSError`, never its target's text; a directory `d.jsonl` and a FIFO `p.jsonl` (`os.mkfifo`) → `error` `NotARegularFile`, the request not hanging; a file whose last line is cut inside a multi-byte character keeps its earlier lines and `parseTraceFile` counts exactly one invalid line; a file removed between listing and open (wrap `os.scandir` to delete one entry after listing) → `error` `FileNotFoundError`, the others keep `text`, status 200.
+  - whole response: `trace_dir` removed after the app is built → 500 `{"error": "FileNotFoundError"}`; an iterator that raises `PermissionError` after its first entry → 500 `{"error": "PermissionError"}`; `os.scandir` raising `ValueError`, with `raise_server_exceptions=False` → 500 whose body is not `{"error": ...}` JSON.
+  - `POST /traces` → 405; every response carries the three headers.
   - logs: across the `/traces` cases, `caplog` holds no record containing the key or any trace file's content.
 
   Red: module missing.
-- [ ] T007 [US1] Implement `src/llm_pii_proxy/viewer/app.py`: `authority(host, port)` (data-model.md § Authority); `create_viewer_app` builds the fixed page map from `importlib.resources` at call time (research R5), the exact-Host middleware on `authority` (research R4), the headers (research R6), and `/traces` with `hmac.compare_digest` on the bearer key, returning the listing exactly as data-model.md § Trace listing defines it. T006 green.
-- [ ] T008 [US1] Startup tests in `tests/integration/test_viewer_server.py` for `src/llm_pii_proxy/viewer/__main__.py`'s `main()` with `uvicorn.run` replaced by a recorder: with a valid environment it prints exactly one line `Trace viewer: http://127.0.0.1:<port>/#key=<key>` to stdout, `http://[::1]:<port>/#key=<key>` with `PII_PROXY_HOST=0:0:0:0:0:0:0:1`, and `http://[::ffff:7f00:1]:<port>/#key=<key>` with `PII_PROXY_HOST=::ffff:127.0.0.1`, where `<key>` is at least 43 URL-safe characters and differs between two calls, and calls `uvicorn.run` on `PII_PROXY_HOST` and `PII_PROXY_VIEWER_PORT`; with a missing trace directory, mode 0755, or `PII_PROXY_HOST=localhost` it exits non-zero naming the cause and does not call `uvicorn.run`; with `PII_PROXY_LISTS_PATH` pointing at a file of invalid TOML and `PII_PROXY_SECRET_DETECTOR_PATH` at a missing file (both of which stop the proxy) it still prints the address and calls `uvicorn.run`; `caplog` holds no record containing the key. Red: module missing.
-- [ ] T009 [US1] Implement `src/llm_pii_proxy/viewer/__main__.py`: `Settings()`, `check_trace_dir(settings.trace_dir, os.getuid())`, `secrets.token_urlsafe(32)`, `print` the address built with `authority` (research R3); load nothing else the proxy loads, `uvicorn.run(create_viewer_app(...), host=settings.host, port=settings.viewer_port, log_config=None)` after `logging.basicConfig` as the proxy's entry point does. T008 green.
-- [ ] T010 [US1] Rework the writer test in `tests/integration/test_viewer.py`: write the existing cases with `FileTap` (four requests, hashed session id, no-session file, incomplete legs, a `not json` line; drop the nested and `notes.txt` cases, now covered by T006), fetch `/traces` through `create_viewer_app` and `TestClient`, pipe the JSON to `node tests/viewer/summarize.js` on stdin, and assert the same summary as today. Red: `summarize.js` still reads a directory.
+- [ ] T007 [US1] Implement `src/llm_pii_proxy/viewer/app.py`: `authority` (data-model.md § Authority); `create_viewer_app` with the page map from `importlib.resources` built at call time (research R5), the Host middleware (research R4), the headers (research R6), and `/traces` with `hmac.compare_digest` on the bearer key, returning data-model.md § Trace listing. T006 green.
+- [ ] T008 [US1] Startup tests in `tests/integration/test_viewer_server.py` for `src/llm_pii_proxy/viewer/__main__.py`'s `main()`, with `uvicorn.run` replaced by a recorder (contracts/viewer-http.md § Startup):
+  - valid environment: exactly one stdout line `Trace viewer: http://<authority>/#key=<key>`, the authority `127.0.0.1:<port>` by default, `[::1]:<port>` with `PII_PROXY_HOST` `0:0:0:0:0:0:0:1` and with `::1%lo`, `[::ffff:7f00:1]:<port>` with `::ffff:127.0.0.1`; `<key>` at least 43 URL-safe characters, different between two calls; `uvicorn.run` called with `PII_PROXY_HOST` and `PII_PROXY_VIEWER_PORT`.
+  - refused: a missing trace directory, mode 0755, `PII_PROXY_HOST=localhost` → non-zero exit naming the cause, `uvicorn.run` not called.
+  - not the proxy's loaders: `PII_PROXY_LISTS_PATH` at a file of invalid TOML and `PII_PROXY_SECRET_DETECTOR_PATH` at a missing file (both stop the proxy) → the address is still printed and `uvicorn.run` called.
+  - logs: `caplog` holds no record containing the key.
+
+  Red: module missing.
+- [ ] T009 [US1] Implement `src/llm_pii_proxy/viewer/__main__.py`: `logging.basicConfig` as the proxy's entry point does, `Settings()`, `check_trace_dir(settings.trace_dir, os.getuid())`, `secrets.token_urlsafe(32)`, `print` the address built with `authority` (research R3), `uvicorn.run(create_viewer_app(...), host=settings.host, port=settings.viewer_port, log_config=None)`. Nothing else the proxy loads. T008 green.
+- [ ] T010 [US1] Rework the writer test in `tests/integration/test_viewer.py`: write the existing cases with `FileTap` (four requests, hashed session id, no-session file, incomplete legs, a `not json` line; drop the nested and `notes.txt` cases, now in T006), fetch `/traces` through `create_viewer_app` and `TestClient`, pipe the JSON to `node tests/viewer/summarize.js` on stdin, and assert the same summary as today. Red: `summarize.js` still reads a directory.
 - [ ] T011 [US1] Change `tests/viewer/summarize.js` to read the listing JSON from stdin and run `parseTraceFile`, `groupRequests` and `comparisons` on it; remove `traceFiles` from `static/traces.js` and its test from `tests/viewer/traces.test.js` (the server selects trace files now). T010 green.
-- [ ] T012 [US1] Test in `tests/integration/test_viewer.py` that `static/index.html` has no `<input`, that its CSP meta is the current one with `connect-src 'self'` in place of `connect-src 'none'`, and that `static/app.js` contains `fetch("traces"` and no `webkitRelativePath`. Extend the existing blocked-name guard over the page's own scripts with the storage APIs `localStorage`, `sessionStorage`, `indexedDB`, `caches` and `document.cookie` (FR-009: the page now holds a key and fetched traces). Red: picker still there.
-- [ ] T013 [US1] Change `static/index.html` (drop the picker label; CSP `connect-src 'self'`) and `static/app.js`: on load, read `key` from `location.hash`; none → show "Open the address the viewer printed." and stop; else `fetch("traces", {headers: {Authorization: "Bearer " + key}, cache: "no-store"})`; 401 → "Key refused: the viewer was restarted; open the address it printed."; 500 whose JSON body has a string `error` → "Trace directory unreadable: <error>"; a rejected fetch, any other status, or a body that does not parse → "Viewer request failed: <status or error name>"; 200 → each `error` entry into the file report as unreadable, each `text` through `parseTraceFile`, then the list as today. T012 green.
-- [ ] T014 [US1] Run quickstart.md by hand in Chromium, every step, including the Network tab (SC-004) and a day of traces timed (SC-005); fix what fails, test first.
+- [ ] T012 [US1] Node tests in `tests/viewer/traces.test.js` for the page-outcome function of data-model.md § Page outcomes, one case per table row, plus: a `text/plain` 500, a 500 whose `error` is a number, a 502, a 200 whose body is not JSON, and a rejected fetch (`TypeError`) all land in the "Viewer request failed" row. Red: function missing.
+- [ ] T013 [US1] Implement that function in `static/traces.js`, with no DOM access. T012 green.
+- [ ] T014 [US1] Test in `tests/integration/test_viewer.py` that `static/index.html` has no `<input`, that its CSP meta is the current one with `connect-src 'self'` in place of `connect-src 'none'`, and that `static/app.js` contains `fetch("traces"` and no `webkitRelativePath`. Extend the existing blocked-name guard over the page's own scripts with `localStorage`, `sessionStorage`, `indexedDB`, `caches` and `document.cookie` (FR-009: the page now holds a key and fetched traces). Red: picker still there.
+- [ ] T015 [US1] Change `static/index.html` (drop the picker label; CSP `connect-src 'self'`) and `static/app.js`: on load, `fetch("traces", {headers: {Authorization: "Bearer " + key}, cache: "no-store"})` with the key from `location.hash`, hand the result (or the rejection) to the T013 function, and render its outcome; the list and comparisons as today. T014 green.
+- [ ] T016 [US1] Run quickstart.md by hand in Chromium, every step, including the Network tab (SC-004) and a day of traces timed (SC-005); fix what fails, test first.
 
 ### Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T015 [P] README "Trace viewer": replace the `http.server` command and the picking with `uv run python -m llm_pii_proxy.viewer`, the printed address, reloading for new records, the key and Host checks, and `PII_PROXY_VIEWER_PORT` in the settings table.
-- [ ] T016 Run `uv run pytest` and the lint command in CLAUDE.md; all green.
+- [ ] T017 [P] README "Trace viewer": replace the `http.server` command and the picking with `uv run python -m llm_pii_proxy.viewer`, the printed address, reloading for new records, the key and Host checks, and `PII_PROXY_VIEWER_PORT` in the settings table.
+- [ ] T018 Run `uv run pytest` and the lint command in CLAUDE.md; all green.
 
 ---
 
@@ -76,8 +85,8 @@ that makes it pass.
 
 - T001 first. T002 → T003; T004 → T005 in parallel with T002–T003.
 - T006 → T007 after T003 and T001. T008 → T009 after T005 and T007.
-- T010 → T011 after T007. T012 → T013 after T011 (`app.js` stops using `traceFiles`).
-- T014 after T009 and T013. T015 after T013; T016 last.
+- T010 → T011 after T007. T012 → T013 after T011 (same module). T014 → T015 after T013.
+- T016 after T009 and T015. T017 after T015; T018 last.
 
 ## Parallel Example
 
@@ -88,5 +97,5 @@ T004 alongside T002      # config test and file_tap test, different files
 ## Implementation Strategy
 
 One story, one PR. The server (T006–T009) is usable with `curl` before the page changes; the page change
-(T012–T013) completes the story. No earlier increment is worth shipping alone: without the page change
+(T012–T015) completes the story. No earlier increment is worth shipping alone: without the page change
 the operator still has the picker.

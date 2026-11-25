@@ -1,4 +1,4 @@
-"""Local JSONL trace output (specs/004-trace-legs research R4–R7, FR-008–FR-011)."""
+"""Local JSONL trace output."""
 
 import asyncio
 import hashlib

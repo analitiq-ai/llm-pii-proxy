@@ -122,7 +122,7 @@ async def full_response_time(proxy, content: str, session: str) -> float:
 
 
 async def test_tracing_adds_under_5ms_at_100kb(make_proxy, regex_detector, upstream, tmp_path):
-    # SC-005. Tracing's cost does not depend on the detectors; the regex detector keeps scrubbing
+    # Tracing's cost does not depend on the detectors; the regex detector keeps scrubbing
     # fast so a few milliseconds stand out of the noise. Records are written after the last chunk,
     # so the time to the full response includes them.
     upstream.post("/v1/messages").mock(

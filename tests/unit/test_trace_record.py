@@ -1,4 +1,4 @@
-"""Trace records and the per-request trace (specs/004-trace-legs research R3a, R8)."""
+"""Trace records and the per-request trace."""
 
 import json
 import logging

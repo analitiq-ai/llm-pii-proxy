@@ -36,7 +36,7 @@ class FileTap:
     @classmethod
     def open(cls, directory: Path, ttl_s: float, uid: int) -> "FileTap":
         """Refuses a directory inside a git working tree, creates it if missing, then refuses it
-        unless it and every trace file in it are owner-only and owned by `uid` (FR-009, FR-010)."""
+        unless it is mode 0700 and every trace file in it 0600, all owned by `uid`."""
         _refuse_git_tree(directory)
         if not os.path.lexists(directory):
             directory.parent.mkdir(parents=True, exist_ok=True)

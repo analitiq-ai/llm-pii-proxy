@@ -57,8 +57,11 @@ it and check the list, both comparisons and the reports against the records.
 
 ### Edge Cases
 
-- A directory with no trace files, or trace files with no records: the viewer says there are no
-  traced requests.
+- A directory holding files but no trace files, or trace files with no records: the viewer says there
+  are no traced requests.
+- The picker closed without choosing a directory: the viewer keeps showing what it showed. The browser
+  may report picking a directory that holds no files at all the same way, so such a pick, made after
+  another directory, may leave the earlier directory's requests on screen.
 - Two records for the same leg of one request: the viewer reports the request as having duplicate
   records and does not compare that leg's pair, rather than picking one.
 - Payloads that differ in shape, not just in text (a field present on one side only): the viewer

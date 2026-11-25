@@ -27,7 +27,7 @@ task that makes it pass. Privatemode is mocked with `respx`; tests never call re
   two error types in `errors.py` and every use; `contracts/confidential-detection.md` fail-closed row
   gains the cut-off answer. T004a green.
 - [ ] T005 [US1] Tests in `tests/unit/test_media.py` for `media.py`, one per row of plan.md § Conversion
-  (the malformed row once per condition, including base64 with a non-alphabet character; each cause
+  (the malformed row once per condition, including base64 with a non-alphabet character and with a non-ASCII character; each cause
   without the data), plus: the row order (conversion disabled and an unsupported media type → the
   `PII_PROXY_MEDIA_ENABLED` 400); a valid block followed by an invalid one → 400 with no Privatemode call
   and nothing cached; replacement text format for image (document and not) and PDF (with and without `title`, page

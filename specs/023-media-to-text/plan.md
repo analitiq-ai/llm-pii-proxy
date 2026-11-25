@@ -16,7 +16,7 @@ over the new text leaves. The walker stops skipping binary sources: one reaching
 | `media_ocr_model` | `deepseek-ocr-2` | |
 | `media_vision_model` | `glm-5.3-flash` | |
 | `media_concurrency` | `4` | ≥ 1; Privatemode calls in flight per process |
-| `media_cache_entries` | `256` | ≥ 1; least recently used entry evicted first |
+| `media_cache_entries` | `256` | ≥ 1; least recently used entry evicted first, and converts again if resent (FR-005) |
 
 Privatemode is reached at `confidential_url` with `confidential_timeout_s`, as the confidential pass is: one
 `httpx.AsyncClient`, built when either feature is enabled. With `media_enabled`, startup fails if
@@ -38,7 +38,8 @@ a source is refused with 400 naming its type.
 | `image`, media type `image/png`, `image/jpeg`, `image/gif`, `image/webp` | vision call; OCR call when `document` |
 | `document`, media type `application/pdf` | `pdftoppm -r 150 -png` into a temp dir (deleted after), one OCR call per page |
 | any other media type | `BadRequest` 400 naming the media type |
-| `pdftoppm` exits non-zero, or runs past `confidential_timeout_s` (then killed) | `BadRequest` 400 "PDF could not be rendered" |
+| `pdftoppm` exits non-zero | `BadRequest` 400 "PDF could not be rendered" |
+| `pdftoppm` runs past `confidential_timeout_s` (then killed) | `MediaRenderTimedOut` 503, `retry-after: 5`, "PDF rendering timed out" |
 
 Privatemode calls, `POST /v1/chat/completions`, `temperature: 0`, image as a `data:` URL `image_url` part
 (both checked against Privatemode on 2026-11-25):
@@ -51,8 +52,9 @@ Privatemode calls, `POST /v1/chat/completions`, `temperature: 0`, image as a `da
 
 Both these calls and the confidential pass's go through one helper, `privatemode.complete(client, request,
 purpose)`, moved out of `ConfidentialDetector._ask`: timeout, transport error or non-2xx →
-`ConfidentialUnavailable` (503); an answer without a string `content` → `ConfidentialInvalid` (502). A
-vision answer that does not match the schema → `ConfidentialInvalid`. Causes name the purpose and failure
+`ConfidentialUnavailable` (503); an answer without a string `content`, or whose `finish_reason` is not
+`stop` (cut off), → `ConfidentialInvalid` (502). This applies to the confidential pass too. A vision answer
+that does not match the schema → `ConfidentialInvalid`. Causes name the purpose and failure
 kind only.
 
 Replacement block: `{"type": "text", "text": ..., "cache_control"?: ...}`, keeping the original's
@@ -68,18 +70,21 @@ Cache: an `OrderedDict` LRU, key `sha256(media_type + "\0" + decoded bytes)`, va
 before scrubbing (a PDF's page Markdown; an image's description and Markdown). The replacement text is
 built from them per block, because a PDF's `title` is not in the key. Identical blocks in one request
 convert once, and a conversion still running is shared by every request holding the same block (one
-task per key, shielded so one request going away does not cancel it). Only successful conversions are
-stored. Process-wide, in memory only (FR-005).
+task per key, shielded so one request going away does not cancel it). The task leaves the in-flight
+registry when it ends, whether it succeeded or failed; only a success is stored. A failure no request is
+left to receive is logged with its purpose and error type only. Process-wide, in memory only (FR-005).
 
 ## Other changes
 
 - `walker.py`: a binary source raises `ValueError`; `Leaves.skipped_binary` and the report's
-  `skipped_binary` are removed. `ScrubReport.media_converted` counts replaced blocks, shown in the header
-  and log line as `media_converted=<n>`.
-- `specs/001-pii-scrubbing-proxy/contracts/http-interface.md`: the binary-source row now points here
-  (changed in this spec PR).
-- README: § Features gains the conversion; settings table gains the five fields; `pdftoppm` under
-  requirements.
+  `skipped_binary` are removed, and so is their use in `app.py` (`_scrub`). `ScrubReport.media_converted`
+  counts replaced blocks, shown in the header and log line as `media_converted=<n>`.
+- `errors.py`: `MediaRenderTimedOut` (503, `api_error`, `retry-after: 5`).
+- 001 documents: `contracts/http-interface.md` (walk rule for binary sources; proxy-originated errors
+  table), changed in this spec PR; `data-model.md` § Scrub report, changed with `report.py` (T004).
+- `specs/001-pii-scrubbing-proxy/quickstart.md`: the five settings, in its settings table (the full list).
+- README: § Features gains the conversion; `pdftoppm` under requirements; settings by reference to
+  quickstart.md.
 
 ## Testing
 

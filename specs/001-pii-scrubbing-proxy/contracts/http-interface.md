@@ -42,10 +42,11 @@ Inside those two fields, every JSON string value is scrubbed, at any depth, **ex
 |---|---|
 | any block with `type` `thinking` or `redacted_thinking`, in full | must be returned byte-for-byte or the API rejects it |
 | values of keys `type`, `id`, `tool_use_id`, `name`, `signature`, `media_type`, and the whole `cache_control` object | structural identifiers, not content |
-| `source` objects whose `type` is `base64`, `url` or `file` | never forwarded: converted to text or refused before the walk ([specs/023-media-to-text/plan.md](../../023-media-to-text/plan.md)) |
 | object keys | structural |
 
-`source` objects of type `text` (plain-text documents) are scrubbed. The walk is a skip-list, not an allow-list,
+A block whose `source` has `type` `base64`, `url` or `file` never reaches the walk: it is converted to text
+or refused before it ([specs/023-media-to-text/plan.md](../../023-media-to-text/plan.md)), and the walk
+raises if one does. `source` objects of type `text` (plain-text documents) are scrubbed. The walk is a skip-list, not an allow-list,
 so a block type the API adds later is scrubbed by default, which is the safe direction.
 
 ## Placeholder notice (FR-019)
@@ -82,8 +83,10 @@ Body shape matches the Anthropic API so Claude Code shows the message:
 | Secret detector process crashed, timed out or answered malformed (contracts/secret-detector.md) | 503 | `api_error` | yes. A fresh process serves the retry |
 | Compressed request body | 415 | `invalid_request_error` | no |
 | Unknown route | 404 | `not_found_error` | no |
-| Confidential pass unreachable or timed out (FR-014) | 503 | `api_error`, `retry-after: 5` | yes |
-| Confidential pass returned an invalid answer (FR-014) | 502 | `api_error` | yes. The model may answer validly next time |
+| Image or PDF given by URL or file id, conversion disabled, malformed block, unsupported media type, or PDF that cannot be rendered (specs/023) | 400 | `invalid_request_error` | no |
+| Privatemode, for the confidential pass (FR-014) or media conversion (specs/023), unreachable, timed out or answered non-2xx | 503 | `api_error`, `retry-after: 5` | yes |
+| PDF rendering timed out (specs/023) | 503 | `api_error`, `retry-after: 5` | yes |
+| Privatemode returned an invalid or cut-off answer (FR-014, specs/023) | 502 | `api_error` | yes. The model may answer validly next time |
 | Upstream unreachable | 502 | `api_error` | yes |
 
 No proxy error message includes request content, values or tokens.

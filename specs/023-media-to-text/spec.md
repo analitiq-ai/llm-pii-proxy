@@ -38,8 +38,9 @@ appear only as placeholders.
 3. **Given** a base64 image that the vision model does not call a document (a photo, a diagram, a chart),
    **When** it is sent, **Then** it is replaced by a text block holding the description only.
 4. **Given** an image or PDF inside a `tool_result`, **When** it is sent, **Then** it is replaced there too.
-5. **Given** the same image or PDF in a later request of the conversation, **When** it is sent, **Then** it is
-   not converted again, and the text sent in its place is identical to the first time.
+5. **Given** the same image or PDF in a later request of the conversation, while its conversion is still
+   cached, **When** it is sent, **Then** it is not converted again, and the text sent in its place is
+   identical to the first time.
 6. **Given** an image or PDF whose source is a URL or a file id, **When** it is sent, **Then** the request is
    refused with 400 and nothing is forwarded.
 7. **Given** Privatemode is unreachable, times out or answers an error, **When** a request holds an image or
@@ -50,6 +51,7 @@ appear only as placeholders.
 ### Edge Cases
 
 - A PDF that cannot be rendered (corrupt, password-protected): 400; the cause names the failure kind only.
+- A PDF whose rendering runs past the Privatemode timeout: 503, so the client may retry.
 - An image or document media type the proxy does not convert: 400 naming the media type.
 - A `cache_control` on the replaced block stays on the text block that replaces it, so the client's prompt
   cache breakpoints still apply.
@@ -69,8 +71,10 @@ appear only as placeholders.
   document; a document image is also converted to Markdown by the OCR model.
 - **FR-004**: The converted text replaces the block in place, wherever under `messages` it is, and is then
   scrubbed as any other text leaf, including by the confidential pass when that is enabled.
-- **FR-005**: Converted text is cached in memory by content hash, so a repeated block is neither converted
-  again nor sent with different text. The cache holds real values: it is never logged or written to disk.
+- **FR-005**: Converted text is cached in memory by content hash, up to a configured number of entries. A
+  block repeated while its entry is cached is neither converted again nor sent with different text; once
+  evicted, it converts again and its text may differ. The cache holds real values: it is never logged or
+  written to disk.
 - **FR-006**: Any conversion failure rejects the request; error causes never quote content.
 - **FR-007**: The scrub report counts converted blocks; it carries no content.
 

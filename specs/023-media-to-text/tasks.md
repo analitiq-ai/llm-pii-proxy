@@ -13,24 +13,32 @@ task that makes it pass. Privatemode is mocked with `respx`; tests never call re
 - [ ] T003 [US1] Change `tests/unit/test_walker.py`. Add tests for `collect_binary_blocks` and
   `apply_binary_blocks`: blocks found in order, inside `tool_result` and inside a `content`-source
   document, thinking blocks untouched. Its binary-source case, which today expects the blocks passed
-  through and `skipped_binary == 3`, instead expects `collect_leaves` to raise. Red: functions missing,
-  walker still skips.
-- [ ] T004 [US1] Change `walker.py` and `report.py` (`skipped_binary` out, `media_converted` in). T003 green.
+  through and `skipped_binary == 3`, instead expects `collect_leaves` to raise. In
+  `tests/unit/test_report.py`, `skipped_binary` becomes `media_converted`. Red: functions missing, walker
+  still skips, report field missing.
+- [ ] T004 [US1] Change `walker.py`, `report.py` and `app.py` (`skipped_binary` out, `media_converted` in),
+  and `specs/001-pii-scrubbing-proxy/data-model.md` § Scrub report to match. T003 green.
 - [ ] T005 [US1] Tests in `tests/unit/test_media.py` for `media.py`, one per row of plan.md § Conversion,
   plus: replacement text format for image (document and not) and PDF (with and without `title`, page
   order kept under concurrency); `cache_control` carried over; the same block twice converts once and
-  yields identical text; a failed conversion is not cached; LRU eviction at `media_cache_entries`; at
+  yields identical text; overlapping requests share one conversion, and one going away does not cancel
+  it; a failed conversion is not cached and leaves the in-flight registry, and one no request receives is
+  logged without content; LRU eviction at `media_cache_entries`, an evicted block converting again; at
   most `media_concurrency` calls in flight; OCR and vision request bodies as plan.md states; timeout,
-  transport error and 500 → 503, an unparseable vision answer → 502, causes without content. Red: module
-  missing.
+  transport error and 500 → 503, an unparseable vision answer or a `finish_reason` other than `stop` →
+  502 and not cached, a render timeout → 503 with the render process killed, causes without content.
+  Red: module missing.
 - [ ] T006 [US1] Implement `src/llm_pii_proxy/media.py`. T005 green.
 - [ ] T007 [US1] Integration tests in `tests/integration/`, through the app with upstream and Privatemode
   mocked: spec acceptance scenarios 1–8 and the edge cases, for `messages` and `count_tokens`; the upstream
-  body holds no binary block and no seeded value; the report header shows `media_converted`; startup fails
+  body holds no binary block and no seeded value; with the confidential pass enabled, converted text goes
+  through it; nothing logged holds converted content (`caplog`); the report header shows
+  `media_converted`; startup fails
   with `media_enabled` and no `pdftoppm` on `PATH`. Red: `_scrub` does not convert, and `build_app` does
   not check for `pdftoppm`.
 - [ ] T008 [US1] Wire conversion into `App._scrub` and the Privatemode client into `build_app`
   (`__main__.py`). T007 green.
 - [ ] T009 [US1] `scripts/e2e/media.py` (plan.md § Testing); run it by hand once for SC-001 and SC-002.
-- [ ] T010 [US1] README: features, settings, `pdftoppm` requirement.
+- [ ] T010 [US1] README: features, `pdftoppm` requirement; the five settings in
+  `specs/001-pii-scrubbing-proxy/quickstart.md`.
 - [ ] T011 Run `uv run pytest` and the lint command in CLAUDE.md; all green.

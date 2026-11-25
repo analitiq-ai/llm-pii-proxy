@@ -48,6 +48,7 @@ cases below. In the viewer:
 | another request sent in the same Claude Code session, the same directory picked again | the new request listed (its session file grew, no new file) |
 | another Claude Code session started, the same directory picked again | its requests listed |
 | picker opened after a pick, then cancelled | the list as it was |
+| a directory holding no files at all picked after a trace directory | either the list as it was or "no traced requests", never a mix of the two |
 | DevTools Performance, CPU throttled 20×: a day of traces picked, a request sent, the same directory picked again before the list appears | the list once, with the new request; no request listed twice, no duplicate leg reported |
 | the same throttling: a day of traces picked, then a directory holding one trace file picked before the list appears | only the second directory's requests and file report, still so after the first pick's reads would have finished |
 | browser developer tools, Network tab, whole session | no request other than the page's own files from `127.0.0.1` (SC-003) |

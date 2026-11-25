@@ -50,8 +50,8 @@
   order:
   1. Copy the input's files into an array.
   2. Clear the input (`value = ""`) before any read, so the selection is empty whenever the picker
-     opens: every later pick changes it and raises `change`, picking the same directory again
-     included (FR-011).
+     opens: every later pick of a directory holding files changes it and raises `change`, picking
+     the same directory again included (FR-011).
   3. Take the next pick number, then clear the list, selection and file report.
   4. Keep the trace files (data-model.md § Trace files; one pure function, shared with the tests) and
      read each copied file with its own read; a read that fails puts the file in the file report with
@@ -60,7 +60,10 @@
      results, so a slow pick never overwrites or mixes into a newer one.
 
   A pick with no trace files shows "no traced requests". A dismissed picker raises `cancel`, not
-  `change` (HTML standard, file upload state, "show the picker"), so it leaves the page as it was.
+  `change` (HTML standard, file upload state, "show the picker"), so it leaves the page as it was. A
+  directory holding no files at all gives the same empty selection, so the browser may report it
+  either way: as `cancel` (the page as it was) or as a `change` with no files ("no traced requests").
+  The spec allows both (Edge Cases), so the page does not depend on which one a browser does.
 - **Rationale**: the browser reads the files as the operator, so the 0700/0600 modes the proxy
   enforces stay as they are, and nothing is copied (FR-009). Supported by Chromium and Firefox.
   Chromium asks "Upload N files to this site?" before reading; nothing is uploaded, the page has no

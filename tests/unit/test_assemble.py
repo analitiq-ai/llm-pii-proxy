@@ -1,4 +1,4 @@
-"""Assembling a streamed response into one message (specs/004-trace-legs research R3)."""
+"""Assembling a streamed response into one message."""
 
 import json
 

@@ -1,4 +1,4 @@
-"""Payload traces per leg (specs/004-trace-legs US1, US2, research R3, R3a, R8)."""
+"""Payload traces per leg."""
 
 import json
 import logging
@@ -85,9 +85,6 @@ MESSAGE_DELTA = (
 )
 MESSAGE_STOP = ("message_stop", {"type": "message_stop"})
 FULL_STREAM = (MESSAGE_START, TEXT_BLOCK, TEXT_DELTA, BLOCK_STOP, MESSAGE_DELTA, MESSAGE_STOP)
-
-
-# US1 scenarios
 
 
 async def test_tracing_off_writes_nothing(traced, upstream, trace_dir):
@@ -326,9 +323,6 @@ async def test_stream_cut_off_by_client_records_what_crossed(
     traces = records(trace_dir)
     assert [(t["leg"], t["complete"]) for t in traces] == crossed
     assert all(t["status"] == 200 for t in traces)
-
-
-# US2 scenarios
 
 
 async def test_all_legs_recorded_in_order_under_one_request_id(traced, upstream, trace_dir):

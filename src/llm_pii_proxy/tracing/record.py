@@ -70,7 +70,7 @@ class RequestTrace:
 
     Feeding a stream event and writing a record, the steps that act on payload content or the tap,
     are guarded: a failure drops that leg and logs only the leg and exception type. Tracing must
-    never change or fail the request it observes (FR-013).
+    never change or fail the request it observes.
     """
 
     def __init__(

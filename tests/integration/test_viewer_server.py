@@ -107,6 +107,7 @@ def test_requests_addressed_to_another_host_are_refused(tmp_path, host):
         assert response.status_code == 421
         assert "secret" not in response.text
         assert f"http://127.0.0.1:{PORT}/" in response.text
+        assert f"http://localhost:{PORT}/" in response.text
 
 
 def test_main_refuses_a_missing_trace_directory(tmp_path, monkeypatch):

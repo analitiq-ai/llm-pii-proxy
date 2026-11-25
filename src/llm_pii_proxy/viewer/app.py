@@ -49,6 +49,9 @@ def create_viewer_app(trace_dir: Path, port: int) -> ASGIApp:
     expected_host = f"{HOST}:{port}"
     # Browsers resolve `localhost` to loopback themselves, so no other site can send it as its Host.
     own_hosts = {expected_host, f"localhost:{port}"}
+    refusal = (
+        "This viewer answers only " + " or ".join(f"http://{h}/" for h in sorted(own_hosts)) + "\n"
+    )
 
     async def traces(_: Request) -> Response:
         # A missing directory raises here, so the page shows an error, not an empty list.
@@ -70,7 +73,6 @@ def create_viewer_app(trace_dir: Path, port: int) -> ASGIApp:
         # A page on another site that points its own name at 127.0.0.1 (DNS rebinding) sends that
         # name here, and is refused.
         if scope["type"] == "http" and Headers(scope=scope).get("host") not in own_hosts:
-            refusal = f"This viewer answers only http://{expected_host}/ - open that address.\n"
             await Response(refusal, status_code=421, media_type="text/plain")(scope, receive, send)
             return
         await app(scope, receive, send)

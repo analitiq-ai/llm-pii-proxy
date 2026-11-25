@@ -111,8 +111,9 @@ def binary_blocks(node: object) -> Iterator[str]:
 
 
 def converted_files(bodies: Iterable[Any]) -> set[str]:
-    """Which of the two files `send` writes reached upstream as converted text, by the header
-    media.py writes. Claude Code may give the PDF any title; its page count must be this PDF's."""
+    """Labels for the converted headers found in the text blocks of `bodies`: "page.png" for any
+    image header, "invoices.pdf" for a PDF header with len(PAGES) pages and no title or a one-line
+    one (Claude Code may set one). It matches header kinds, not file identity."""
     untitled = pdf_header(None, len(PAGES))
     after_title = untitled.removeprefix("[PDF")
     found = set()

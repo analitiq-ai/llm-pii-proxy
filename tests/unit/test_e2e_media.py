@@ -26,7 +26,8 @@ def test_a_file_missing_upstream_is_not_found():
     assert converted_files([request(IMAGE_HEADER + "\n\na page")]) == {"page.png"}
 
 
+@pytest.mark.parametrize("title", [None, "invoices.pdf"], ids=["untitled", "titled"])
 @pytest.mark.parametrize("pages", [1, len(PAGES) - 1, len(PAGES) + 1])
-def test_a_pdf_with_another_page_count_is_not_this_pdf(pages):
-    pdf = pdf_header(None, pages) + "\n\n--- Page 1 ---\n\nInvoice"
+def test_a_pdf_with_another_page_count_is_not_this_pdf(pages, title):
+    pdf = pdf_header(title, pages) + "\n\n--- Page 1 ---\n\nInvoice"
     assert converted_files([request(pdf)]) == set()

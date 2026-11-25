@@ -28,16 +28,18 @@ Which blocks: every dict holding a `source` whose `type` is `base64`, `url` or `
 already finds them (`system` and `messages`, thinking blocks untouched). There is one traversal:
 `walker.py` gains `collect_binary_blocks(body)` and `apply_binary_blocks(body, replacements)`, the
 counterparts of `collect_leaves` and `apply_leaves`, built on the same `_walk` rules; `media.py` calls
-them and does not walk the body itself. A block of a type other than `image` or `document` holding such
-a source is refused with 400 naming its type.
+them and does not walk the body itself. Every block is checked, in row order, before any conversion
+starts, and the first failure refuses the request.
 
 | Block | Outcome |
 |---|---|
+| type other than `image` or `document` | `BadRequest` 400 naming its type |
 | source `url` or `file` | `BadRequest` 400: "image and PDF blocks given by URL or file id are not supported" |
+| `media_type` missing or not a string; `data` missing, empty, not a string, or not valid base64 (`b64decode(validate=True)`, catching `binascii.Error`) | `BadRequest` 400 naming the block type and what is wrong, never the data |
+| media type other than those below | `BadRequest` 400 naming the media type |
 | media disabled | `BadRequest` 400 naming `PII_PROXY_MEDIA_ENABLED` |
 | `image`, media type `image/png`, `image/jpeg`, `image/gif`, `image/webp` | vision call; OCR call when `document` |
 | `document`, media type `application/pdf` | `pdftoppm -r 150 -png` into a temp dir (deleted after), one OCR call per page |
-| any other media type | `BadRequest` 400 naming the media type |
 | `pdftoppm` exits non-zero | `BadRequest` 400 "PDF could not be rendered" |
 | `pdftoppm` runs past `confidential_timeout_s` (then killed) | `MediaRenderTimedOut` 503, `retry-after: 5`, "PDF rendering timed out" |
 
@@ -52,9 +54,9 @@ Privatemode calls, `POST /v1/chat/completions`, `temperature: 0`, image as a `da
 
 Both these calls and the confidential pass's go through one helper, `privatemode.complete(client, request,
 purpose)`, moved out of `ConfidentialDetector._ask`: timeout, transport error or non-2xx →
-`ConfidentialUnavailable` (503); an answer without a string `content`, or whose `finish_reason` is not
-`stop` (cut off), → `ConfidentialInvalid` (502). This applies to the confidential pass too. A vision answer
-that does not match the schema → `ConfidentialInvalid`. Causes name the purpose and failure
+`PrivatemodeUnavailable` (503); an answer without a string `content`, or whose `finish_reason` is not
+`stop` (cut off), → `PrivatemodeInvalid` (502). This applies to the confidential pass too. A vision answer
+that does not match the schema → `PrivatemodeInvalid`. Causes name the purpose and failure
 kind only.
 
 Replacement block: `{"type": "text", "text": ..., "cache_control"?: ...}`, keeping the original's
@@ -79,7 +81,11 @@ left to receive is logged with its purpose and error type only. Process-wide, in
 - `walker.py`: a binary source raises `ValueError`; `Leaves.skipped_binary` and the report's
   `skipped_binary` are removed, and so is their use in `app.py` (`_scrub`). `ScrubReport.media_converted`
   counts replaced blocks, shown in the header and log line as `media_converted=<n>`.
-- `errors.py`: `MediaRenderTimedOut` (503, `api_error`, `retry-after: 5`).
+- `errors.py`: `MediaRenderTimedOut` (503, `api_error`, `retry-after: 5`); `ConfidentialUnavailable` and
+  `ConfidentialInvalid` renamed `PrivatemodeUnavailable` and `PrivatemodeInvalid`, since media conversion
+  raises them too.
+- `privatemode.py` (new) holds `complete`; `detection/confidential.py` calls it instead of its own `_ask`
+  body.
 - 001 documents: `contracts/http-interface.md` (walk rule for binary sources; proxy-originated errors
   table), changed in this spec PR; `data-model.md` § Scrub report, changed with `report.py` (T004).
 - `specs/001-pii-scrubbing-proxy/quickstart.md`: the five settings, in its settings table (the full list).

@@ -83,7 +83,7 @@ Body shape matches the Anthropic API so Claude Code shows the message:
 | Secret detector process crashed, timed out or answered malformed (contracts/secret-detector.md) | 503 | `api_error` | yes. A fresh process serves the retry |
 | Compressed request body | 415 | `invalid_request_error` | no |
 | Unknown route | 404 | `not_found_error` | no |
-| Image or PDF given by URL or file id, conversion disabled, malformed block, unsupported media type, or PDF that cannot be rendered (specs/023) | 400 | `invalid_request_error` | no |
+| Image or PDF given by URL or file id, conversion disabled, malformed block, unsupported media type, PDF that cannot be rendered, or a binary source on a block that is not an image or document (specs/023) | 400 | `invalid_request_error` | no |
 | Privatemode, for the confidential pass (FR-014) or media conversion (specs/023), unreachable, timed out or answered non-2xx | 503 | `api_error`, `retry-after: 5` | yes |
 | PDF rendering timed out (specs/023) | 503 | `api_error`, `retry-after: 5` | yes |
 | Privatemode returned an invalid or cut-off answer (FR-014, specs/023) | 502 | `api_error` | yes. The model may answer validly next time |

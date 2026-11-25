@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from llm_pii_proxy.errors import BadRequest, ConfidentialInvalid, ProxyError, as_proxy_error
+from llm_pii_proxy.errors import BadRequest, PrivatemodeInvalid, ProxyError, as_proxy_error
 from llm_pii_proxy.privatemode import complete
 from llm_pii_proxy.processes import kill_process
 from llm_pii_proxy.walker import apply_binary_blocks, collect_binary_blocks
@@ -197,7 +197,7 @@ class MediaConverter:
         try:
             return _VisionAnswer.model_validate(json.loads(content))
         except (ValueError, ValidationError):
-            raise ConfidentialInvalid(f"{_PURPOSE} returned an invalid answer") from None
+            raise PrivatemodeInvalid(f"{_PURPOSE} returned an invalid answer") from None
 
     async def _complete(self, request: dict[str, Any]) -> str:
         async with self._slots:

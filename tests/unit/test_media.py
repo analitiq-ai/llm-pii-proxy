@@ -14,8 +14,8 @@ import respx
 from llm_pii_proxy import media as media_module
 from llm_pii_proxy.errors import (
     BadRequest,
-    ConfidentialInvalid,
-    ConfidentialUnavailable,
+    PrivatemodeInvalid,
+    PrivatemodeUnavailable,
     ProxyError,
 )
 from llm_pii_proxy.media import MediaConverter, convert_media, render_pdf
@@ -260,7 +260,7 @@ async def test_the_same_block_converts_once_and_reads_the_same(privatemode, clie
 async def test_a_failed_conversion_is_not_cached(privatemode, client):
     media = converter(client)
     privatemode.vision_answer = httpx.Response(500)
-    with pytest.raises(ConfidentialUnavailable):
+    with pytest.raises(PrivatemodeUnavailable):
         await convert_media(body(image()), media)
     privatemode.vision_answer = vision("a description", document=False)
     await convert_media(body(image()), media)
@@ -330,17 +330,17 @@ async def test_request_bodies(client):
 @pytest.mark.parametrize(
     "failure,error",
     [
-        (httpx.ReadTimeout("slow"), ConfidentialUnavailable),
-        (httpx.ConnectError("down"), ConfidentialUnavailable),
-        (httpx.Response(500, text="an invoice for Jane"), ConfidentialUnavailable),
-        (completion("Jane Doe, not json"), ConfidentialInvalid),
-        (completion(json.dumps({"document": "yes", "description": "Jane"})), ConfidentialInvalid),
+        (httpx.ReadTimeout("slow"), PrivatemodeUnavailable),
+        (httpx.ConnectError("down"), PrivatemodeUnavailable),
+        (httpx.Response(500, text="an invoice for Jane"), PrivatemodeUnavailable),
+        (completion("Jane Doe, not json"), PrivatemodeInvalid),
+        (completion(json.dumps({"document": "yes", "description": "Jane"})), PrivatemodeInvalid),
         (
             httpx.Response(200, json={"choices": [{"message": {"content": None}}]}),
-            ConfidentialInvalid,
+            PrivatemodeInvalid,
         ),
-        (httpx.Response(200, json={"error": "Jane"}), ConfidentialInvalid),
-        (httpx.Response(200, text="Jane, not an envelope"), ConfidentialInvalid),
+        (httpx.Response(200, json={"error": "Jane"}), PrivatemodeInvalid),
+        (httpx.Response(200, text="Jane, not an envelope"), PrivatemodeInvalid),
     ],
     ids=[
         "timeout",
@@ -444,7 +444,7 @@ async def test_a_privatemode_failure_wins_over_an_unexpected_one(
     monkeypatch.setattr(media_module, "PDFTOPPM", str(tmp_path / "missing-pdftoppm"))
     privatemode.vision_answer = httpx.Response(500)
     blocks = [pdf(["Jane"]), image()]
-    with pytest.raises(ConfidentialUnavailable):
+    with pytest.raises(PrivatemodeUnavailable):
         await convert_media(body(*(blocks if pdf_first else blocks[::-1])), converter(client))
 
 

@@ -10,7 +10,7 @@ import respx
 from llm_pii_proxy.detection import Stage
 from llm_pii_proxy.detection.chunking import chunk
 from llm_pii_proxy.detection.confidential import ConfidentialDetector
-from llm_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable
+from llm_pii_proxy.errors import PrivatemodeInvalid, PrivatemodeUnavailable
 from llm_pii_proxy.report import ScrubReport
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.vault import Category, Vault
@@ -160,7 +160,7 @@ async def test_unreachable_or_non_2xx_is_unavailable(privatemode, client, respon
         return_value=response
     )
     (result,) = (await detector(client).detect(["Ask the mayor's chauffeur."])).leaves
-    assert isinstance(result, ConfidentialUnavailable)
+    assert isinstance(result, PrivatemodeUnavailable)
 
 
 @pytest.mark.parametrize(
@@ -189,7 +189,7 @@ async def test_unreachable_or_non_2xx_is_unavailable(privatemode, client, respon
 async def test_invalid_answer_is_invalid(privatemode, client, content):
     privatemode.post("/v1/chat/completions").mock(return_value=answer(content=content))
     (result,) = (await detector(client).detect(["Ask the mayor's chauffeur."])).leaves
-    assert isinstance(result, ConfidentialInvalid)
+    assert isinstance(result, PrivatemodeInvalid)
 
 
 async def test_failed_chunk_fails_only_the_leaves_it_covers(privatemode, client):
@@ -199,7 +199,7 @@ async def test_failed_chunk_fails_only_the_leaves_it_covers(privatemode, client)
     privatemode.post("/v1/chat/completions").mock(side_effect=by_chunk)
     leaves = ["first " + "a" * 240, "second " + "b" * 240]
     first, second = (await detector(client, chunk_chars=260).detect(leaves)).leaves
-    assert isinstance(first, list) and isinstance(second, ConfidentialUnavailable)
+    assert isinstance(first, list) and isinstance(second, PrivatemodeUnavailable)
 
 
 async def test_error_causes_never_quote_content(privatemode, client):
@@ -207,7 +207,7 @@ async def test_error_causes_never_quote_content(privatemode, client):
         return_value=answer(content="the mayor's chauffeur is not JSON")
     )
     (result,) = (await detector(client).detect(["Ask the mayor's chauffeur."])).leaves
-    assert isinstance(result, ConfidentialInvalid) and "chauffeur" not in result.cause
+    assert isinstance(result, PrivatemodeInvalid) and "chauffeur" not in result.cause
 
 
 # Pipeline: the pass runs on locally scrubbed text; findings go through the vault (FR-012, FR-013).
@@ -281,7 +281,7 @@ async def test_value_vaulted_during_the_pass_gets_its_token(privatemode, client)
 async def test_failed_pass_fails_the_leaf(privatemode, client):
     privatemode.post("/v1/chat/completions").mock(return_value=httpx.Response(503))
     (out,) = await pipeline(client).scrub(["Ask the mayor's chauffeur."], Vault(), ScrubReport())
-    assert isinstance(out, ConfidentialUnavailable)
+    assert isinstance(out, PrivatemodeUnavailable)
 
 
 async def test_locally_failed_leaf_is_not_sent(privatemode, client):

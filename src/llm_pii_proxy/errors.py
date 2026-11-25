@@ -53,13 +53,13 @@ class SecretDetectorUnavailable(ProxyError):
     error_type = "api_error"
 
 
-class ConfidentialUnavailable(ProxyError):
+class PrivatemodeUnavailable(ProxyError):
     status = 503
     error_type = "api_error"
     retry_after = 5
 
 
-class ConfidentialInvalid(ProxyError):
+class PrivatemodeInvalid(ProxyError):
     status = 502
     error_type = "api_error"
 

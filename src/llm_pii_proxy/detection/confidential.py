@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from llm_pii_proxy.detection import DetectedSpan, Stage
 from llm_pii_proxy.detection.chunking import Chunk, chunk
-from llm_pii_proxy.errors import ConfidentialInvalid, ProxyError
+from llm_pii_proxy.errors import PrivatemodeInvalid, ProxyError
 from llm_pii_proxy.privatemode import complete
 from llm_pii_proxy.vault import Category
 
@@ -118,7 +118,7 @@ class ConfidentialDetector:
         try:
             answer = _Answer.model_validate(json.loads(content))
         except (ValueError, ValidationError):
-            return ConfidentialInvalid("confidential pass returned an invalid answer")
+            return PrivatemodeInvalid("confidential pass returned an invalid answer")
         return [f.text for f in answer.findings]
 
     def _request(self, text: str) -> dict[str, Any]:

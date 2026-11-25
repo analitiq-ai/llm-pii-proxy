@@ -1,9 +1,9 @@
 import ipaddress
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 import httpx
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from llm_pii_proxy.detection.chunking import DEFAULT_OVERLAP
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     trace_legs: Annotated[frozenset[Leg], NoDecode] = frozenset()
     trace_dir: Path = Path("~/.local/state/llm-pii-proxy/traces")
     trace_ttl_h: float = Field(24, gt=0)
+    trace_raw: bool = False
 
     @field_validator("host")
     @classmethod
@@ -61,6 +62,16 @@ class Settings(BaseSettings):
         if isinstance(legs, str):
             return frozenset(name.strip() for name in legs.split(",") if name.strip())
         return legs
+
+    @model_validator(mode="after")
+    def _raw_legs_opted_in(self) -> Self:
+        raw = sorted(leg for leg in self.trace_legs if leg.raw)
+        if raw and not self.trace_raw:
+            raise ValueError(
+                f"trace legs {','.join(raw)} hold real values: "
+                "set PII_PROXY_TRACE_RAW=true to record them"
+            )
+        return self
 
     @field_validator("lists_path", "secret_detector_path", "trace_dir")
     @classmethod

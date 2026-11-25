@@ -6,6 +6,7 @@ import logging
 import httpx
 import pytest
 
+from llm_pii_proxy.tracing.record import Leg
 from llm_pii_proxy.vault import Category
 from tests.integration.conftest import SESSION, post_and_disconnect
 
@@ -149,8 +150,9 @@ async def test_client_disconnect_closes_upstream_stream(
     assert upstream_body.closed
 
 
+@pytest.mark.parametrize("legs", [frozenset(), frozenset(Leg)], ids=["untraced", "traced"])
 async def test_client_disconnect_logs_unissued_tokens_of_open_block(
-    make_proxy, regex_detector, upstream, caplog
+    make_proxy, regex_detector, upstream, caplog, legs
 ):
     events = [
         ("message_start", {"type": "message_start", "message": {"content": []}}),
@@ -173,7 +175,7 @@ async def test_client_disconnect_logs_unissued_tokens_of_open_block(
     body = {"model": "m", "stream": True, "messages": [{"role": "user", "content": "ann@x.com"}]}
     with caplog.at_level(logging.INFO):
         await post_and_disconnect(
-            make_proxy([regex_detector]), "/v1/messages", body, after_chunks=3
+            make_proxy([regex_detector], trace_legs=legs), "/v1/messages", body, after_chunks=3
         )
     (line,) = [r.getMessage() for r in caplog.records if "unissued=" in r.getMessage()]
     assert "unissued=1" in line

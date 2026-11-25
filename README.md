@@ -40,9 +40,11 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Optional payload tracing.** Writes what each Messages and token-count request sent to Anthropic and what
   came back to local JSON Lines files, one per session, to show what the proxy changed. These legs hold
   what Anthropic saw: placeholders where the proxy scrubbed, and real values in anything it does not scrub
-  (see [Limits](#limits)). Owner-only files outside any git repository; a session's file is deleted once it
-  has gone unwritten for the retention period (24 hours by default). Tracing never changes or blocks a
-  request. Off by default.
+  (see [Limits](#limits)). The client legs, what Claude Code sent and what it got back, hold real values and
+  need a second opt-in; with both sides on, comparing them shows what was scrubbed and what was restored.
+  Owner-only files outside any git repository; a session's file is deleted once it has gone unwritten for
+  the retention period (24 hours by default). Tracing never changes or fails a request. Off by
+  default.
 - **Loopback only.** The proxy listens only on a loopback IP address (`127.0.0.0/8` or `::1`). Host names,
   `localhost` included, are rejected: a name can resolve to a non-loopback address.
 
@@ -145,14 +147,17 @@ Payload tracing:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PII_PROXY_TRACE_LEGS` | empty: tracing off | comma-separated legs to record: `upstream_out` (sent to Anthropic), `upstream_in` (Anthropic's response, streams assembled into one message) |
+| `PII_PROXY_TRACE_LEGS` | empty: tracing off | comma-separated legs to record: `client_in` (sent by Claude Code), `upstream_out` (sent to Anthropic), `upstream_in` (Anthropic's response), `client_out` (returned to Claude Code); streamed responses are assembled into one message |
+| `PII_PROXY_TRACE_RAW` | `false` | must be `true` to record `client_in` or `client_out`, which hold real values; without it the proxy refuses to start |
 | `PII_PROXY_TRACE_DIR` | `~/.local/state/llm-pii-proxy/traces` | must be outside any git working tree, mode 0700 and yours; created if missing |
 | `PII_PROXY_TRACE_TTL_H` | `24` | hours a trace file is kept after its last write |
 
 Each line is one leg of one request: `time`, `session_id`, `request_id` (shared by the legs of a request),
-`leg`, `route`, `status` (Anthropic's, or the proxy's own 502 when Anthropic was unreachable), `complete`
-(false for a stream that ended early or with an error), `payload`. Every startup with tracing on logs a
-warning naming the legs and the directory.
+`leg`, `route`, `status`, `complete` (false for a stream that ended early or with an error), `payload`.
+`status` is what the client got on the client legs, and Anthropic's on the others, or the proxy's own 502
+when Anthropic was unreachable. A Messages or token-count request the proxy rejects before forwarding writes
+at most `client_in`; one with no session id goes to `_no-session.jsonl`. Every startup with tracing on logs
+a warning naming the legs and the directory, and saying so when real values are written to disk.
 
 ## Limits
 

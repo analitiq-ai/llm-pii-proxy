@@ -86,10 +86,12 @@ def _open_trace_output(settings: Settings) -> FileTap | None:
         return None
     file_tap = FileTap.open(settings.trace_dir, settings.trace_ttl_h * 3600, os.getuid())
     file_tap.sweep(time.time())
+    raw = any(leg.raw for leg in settings.trace_legs)
     log.warning(
-        "payload tracing is on: legs %s are written to %s",
+        "payload tracing is on: legs %s are written to %s%s",
         ",".join(sorted(settings.trace_legs)),
         settings.trace_dir,
+        "; real values are written to disk" if raw else "",
     )
     return file_tap
 

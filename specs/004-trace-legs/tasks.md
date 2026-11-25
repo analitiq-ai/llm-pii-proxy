@@ -88,19 +88,19 @@ session file: two records with one request id, holding the placeholder and not t
 **Independent Test**: enable all four legs with the raw opt-in, send a request with a planted email, check the
 four records under one request id; select a raw leg without the opt-in and check startup fails.
 
-- [ ] T020 [P] [US2] Test in `tests/unit/test_config.py`: `client_in` and `client_out` are accepted; selecting either without `PII_PROXY_TRACE_RAW=true` fails validation with an error naming the raw legs and the opt-in (AS1, FR-003, SC-003). Red: legs unknown.
-- [ ] T021 [US2] Add `client_in` (first), `client_out` (last) and the `raw` property to `Leg` in `src/llm_pii_proxy/tracing/record.py`; client legs carry the `finish` status; add `trace_raw: bool = False` and the model validator to `src/llm_pii_proxy/config.py`. T020 green.
-- [ ] T022 [P] [US2] Test in `tests/unit/test_file_tap.py`: a record with `session_id` None goes to `_no-session.jsonl` (FR-008). Red: not handled.
-- [ ] T023 [US2] Handle `session_id` None in `FileTap` in `src/llm_pii_proxy/tracing/file_tap.py`. T022 green.
-- [ ] T024 [US2] Change `restore_stream` in `src/llm_pii_proxy/sse.py` to yield `ServerSentEvent`s and make the encoder public; `app.py` encodes. Update `tests/unit/test_sse.py` to assert on events; the full suite passes unchanged (research R2).
-- [ ] T025 [US2] Test in `tests/integration/test_tracing.py`: all four legs give four records in the order `client_in`, `upstream_out`, `upstream_in`, `client_out` with one request id; `client_in` holds the email and `upstream_out` its placeholder; streamed `client_out` is the assembled restored message (AS2); a request rejected before forwarding (invalid JSON; missing session header, to `_no-session.jsonl`) writes only `client_in` with the rejection status (AS3, FR-014); upstream unreachable writes `client_in` and `upstream_out` with 502; a forwarded upstream error writes `client_out` with its status; an unexpected exception writes `client_in` with 500; a non-JSON body is recorded as text; a cut stream marks `client_out` incomplete (FR-007); no log record holds the email or the placeholder. Red: not wired.
-- [ ] T026 [US2] In `src/llm_pii_proxy/app.py`: capture `client_in` (the raw body) at the start of the route wrapper; capture `client_out` from the restored or forwarded body, or feed it the restored events. T025 green.
-- [ ] T027 [US2] Test then implement the warning wording in `tests/integration/test_main.py` and `src/llm_pii_proxy/__main__.py`: with a raw leg enabled, the startup warning says real values are written to disk (AS4, FR-012).
+- [x] T020 [P] [US2] Test in `tests/unit/test_config.py`: `client_in` and `client_out` are accepted; selecting either without `PII_PROXY_TRACE_RAW=true` fails validation with an error naming the raw legs and the opt-in (AS1, FR-003, SC-003). Red: legs unknown.
+- [x] T021 [US2] Add `client_in` (first), `client_out` (last) and the `raw` property to `Leg` in `src/llm_pii_proxy/tracing/record.py`; client legs carry the `finish` status; add `trace_raw: bool = False` and the model validator to `src/llm_pii_proxy/config.py`. T020 green.
+- [x] T022 [P] [US2] Test in `tests/unit/test_file_tap.py`: a record with `session_id` None goes to `_no-session.jsonl` (FR-008). Red: not handled.
+- [x] T023 [US2] Handle `session_id` None in `FileTap` in `src/llm_pii_proxy/tracing/file_tap.py`. T022 green.
+- [x] T024 [US2] Change `restore_stream` in `src/llm_pii_proxy/sse.py` to yield `ServerSentEvent`s and make the encoder public; `app.py` encodes. Update `tests/unit/test_sse.py` to assert on events; the full suite passes unchanged (research R2).
+- [x] T025 [US2] Test in `tests/integration/test_tracing.py`: all four legs give four records in the order `client_in`, `upstream_out`, `upstream_in`, `client_out` with one request id; `client_in` holds the email and `upstream_out` its placeholder; streamed `client_out` is the assembled restored message (AS2); a request rejected before forwarding (invalid JSON; missing session header, to `_no-session.jsonl`) writes only `client_in` with the rejection status (AS3, FR-014); upstream unreachable writes `client_in` and `upstream_out` with 502; a forwarded upstream error writes `client_out` with its status; an unexpected exception writes `client_in` with 500; a non-JSON body is recorded as text; a cut stream marks `client_out` incomplete (FR-007); no log record holds the email or the placeholder. Red: not wired.
+- [x] T026 [US2] In `src/llm_pii_proxy/app.py`: capture `client_in` (the raw body) at the start of the route wrapper; capture `client_out` from the restored or forwarded body, or feed it the restored events. T025 green.
+- [x] T027 [US2] Test then implement the warning wording in `tests/integration/test_main.py` and `src/llm_pii_proxy/__main__.py`: with a raw leg enabled, the startup warning says real values are written to disk (AS4, FR-012).
 
 ### Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T028 [P] Extend the SC-005 benchmark case in `tests/benchmark/test_latency.py` to all four legs.
-- [ ] T029 [P] README: describe the raw legs and `PII_PROXY_TRACE_RAW` in the Features bullet and configuration docs.
+- [x] T028 [P] Extend the SC-005 benchmark case in `tests/benchmark/test_latency.py` to all four legs.
+- [x] T029 [P] README: describe the raw legs and `PII_PROXY_TRACE_RAW` in the Features bullet and configuration docs.
 - [ ] T030 Run `specs/004-trace-legs/quickstart.md` manually with all four legs and a throwaway directory; delete the directory afterwards.
 
 ---

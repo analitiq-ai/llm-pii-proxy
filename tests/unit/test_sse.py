@@ -5,7 +5,7 @@ import json
 from httpx_sse import ServerSentEvent
 
 from llm_pii_proxy.report import ScrubReport
-from llm_pii_proxy.sse import restore_stream
+from llm_pii_proxy.sse import encode, restore_stream
 from llm_pii_proxy.vault import Category, Vault
 
 
@@ -31,19 +31,12 @@ async def run(events, vault):
             yield e
 
     report = ScrubReport()
-    chunks = [c async for c in restore_stream(source(), vault, report)]
-    return chunks, report.unissued
+    restored = [e async for e in restore_stream(source(), vault, report)]
+    return restored, report.unissued
 
 
-def parse(chunks):
-    """Each chunk is exactly one SSE event: (event name, data)."""
-    out = []
-    for chunk in chunks:
-        text = chunk.decode()
-        assert text.endswith("\n\n") and text.count("\n\n") == 1
-        lines = dict(line.split(": ", 1) for line in text.strip("\n").split("\n"))
-        out.append((lines["event"], lines["data"]))
-    return out
+def parse(events: list[ServerSentEvent]) -> list[tuple[str, str]]:
+    return [(e.event, e.data) for e in events]
 
 
 def make_vault():
@@ -82,8 +75,8 @@ async def test_other_events_unchanged_and_in_order():
         ev("message_stop", {"type": "message_stop"}),
         ev("error", {"type": "error", "error": {"type": "overloaded_error", "message": "x"}}),
     ]
-    chunks, _ = await run(events, make_vault())
-    assert parse(chunks) == [(e.event, e.data) for e in events]
+    restored, _ = await run(events, make_vault())
+    assert parse(restored) == [(e.event, e.data) for e in events]
 
 
 async def test_text_delta_restored_raw_with_holdback():
@@ -141,3 +134,27 @@ async def test_non_ascii_preserved():
     events = [delta(0, "text_delta", "hi PII_PERSON_0001 ✓"), stop(0)]
     out = parse((await run(events, v))[0])
     assert payload(out[0])["delta"]["text"] == "hi Zoë ✓"
+
+
+def test_encode_writes_one_event_with_every_field():
+    event = ServerSentEvent(event="message_delta", data="line one\nline two", id="7", retry=1000)
+    assert encode(event) == (
+        b"event: message_delta\nid: 7\nretry: 1000\ndata: line one\ndata: line two\n\n"
+    )
+
+
+async def test_closing_the_stream_closes_its_source():
+    closed = False
+
+    async def source():
+        nonlocal closed
+        try:
+            yield delta(0, "text_delta", "a")
+            yield delta(0, "text_delta", "b")
+        finally:
+            closed = True
+
+    restored = restore_stream(source(), make_vault(), ScrubReport())
+    await anext(restored)
+    await restored.aclose()
+    assert closed

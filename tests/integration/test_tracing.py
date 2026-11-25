@@ -1,4 +1,4 @@
-"""Payload traces of the scrubbed legs (specs/004-trace-legs US1, research R3, R3a, R8)."""
+"""Payload traces per leg (specs/004-trace-legs US1, US2, research R3, R3a, R8)."""
 
 import json
 import logging
@@ -7,6 +7,7 @@ import os
 import httpx
 import pytest
 
+from llm_pii_proxy.app import SESSION_HEADER
 from llm_pii_proxy.tracing.file_tap import FileTap
 from llm_pii_proxy.tracing.record import Leg, TraceRecord
 from tests.integration.conftest import SESSION, message_response, post_and_disconnect, sent
@@ -14,6 +15,7 @@ from tests.integration.conftest import SESSION, message_response, post_and_disco
 EMAIL = "ann@example.com"
 PLACEHOLDER = "PII_EMAIL_0001"
 BOTH = frozenset({Leg.UPSTREAM_OUT, Leg.UPSTREAM_IN})
+ALL = frozenset(Leg)
 BODY = {"model": "m", "messages": [{"role": "user", "content": f"mail {EMAIL}"}]}
 STREAM_BODY = BODY | {"stream": True}
 
@@ -203,7 +205,7 @@ async def test_traced_requests_log_no_content(traced, upstream, trace_dir, caplo
             httpx.Response(400, json={"type": "error", "error": {"message": answer_text}}),
         ]
     )
-    proxy = traced(tap=FailingTap()) if tap == "failing" else traced()
+    proxy = traced(legs=ALL, tap=FailingTap() if tap == "failing" else None)
     with caplog.at_level(logging.DEBUG):
         for request in (body, body | {"stream": True}, body):
             await proxy.post("/v1/messages", json=request, headers=SESSION)
@@ -268,8 +270,8 @@ async def test_tracing_never_changes_traffic(
     body = STREAM_BODY if streamed else BODY
     setups = {
         "off": {},
-        "on": {"tap": FileTap.open(trace_dir, 3600, os.getuid()), "trace_legs": BOTH},
-        "failing": {"tap": FailingTap(), "trace_legs": BOTH},
+        "on": {"tap": FileTap.open(trace_dir, 3600, os.getuid()), "trace_legs": ALL},
+        "failing": {"tap": FailingTap(), "trace_legs": ALL},
     }
     seen = {}
     for name, setup in setups.items():
@@ -287,14 +289,30 @@ async def test_tracing_never_changes_traffic(
             sent_request.content,
         )
     assert seen["on"] == seen["off"] == seen["failing"]
-    assert len(records(trace_dir)) == 2
+    assert len(records(trace_dir)) == 4
 
 
 @pytest.mark.parametrize(
     ("after_chunks", "crossed"),
     [
-        (0, [("upstream_out", True), ("upstream_in", False)]),
-        (1, [("upstream_out", True), ("upstream_in", False)]),
+        (
+            0,
+            [
+                ("client_in", True),
+                ("upstream_out", True),
+                ("upstream_in", False),
+                ("client_out", False),
+            ],
+        ),
+        (
+            1,
+            [
+                ("client_in", True),
+                ("upstream_out", True),
+                ("upstream_in", False),
+                ("client_out", False),
+            ],
+        ),
     ],
     ids=["before body", "mid body"],
 )
@@ -302,7 +320,100 @@ async def test_stream_cut_off_by_client_records_what_crossed(
     traced, upstream, trace_dir, after_chunks, crossed
 ):
     upstream.post("/v1/messages").mock(return_value=stream_response(sse(*FULL_STREAM)))
-    await post_and_disconnect(traced(), "/v1/messages", STREAM_BODY, after_chunks=after_chunks)
+    await post_and_disconnect(
+        traced(legs=ALL), "/v1/messages", STREAM_BODY, after_chunks=after_chunks
+    )
     traces = records(trace_dir)
     assert [(t["leg"], t["complete"]) for t in traces] == crossed
     assert all(t["status"] == 200 for t in traces)
+
+
+# US2 scenarios
+
+
+async def test_all_legs_recorded_in_order_under_one_request_id(traced, upstream, trace_dir):
+    upstream.post("/v1/messages").mock(return_value=message_response(f"Hi {PLACEHOLDER}"))
+    r = await traced(legs=ALL).post("/v1/messages", json=BODY, headers=SESSION)
+    traces = records(trace_dir)
+    assert [t["leg"] for t in traces] == ["client_in", "upstream_out", "upstream_in", "client_out"]
+    assert len({t["request_id"] for t in traces}) == 1
+    assert {t["status"] for t in traces} == {200}
+    client_in, out, back, client_out = (t["payload"] for t in traces)
+    assert client_in == BODY
+    assert out == sent(upstream)
+    assert EMAIL not in json.dumps(out) and PLACEHOLDER in json.dumps(out)
+    assert back["content"][0]["text"] == f"Hi {PLACEHOLDER}"
+    assert client_out == r.json()
+    assert client_out["content"][0]["text"] == f"Hi {EMAIL}"
+
+
+async def test_streamed_client_out_is_the_assembled_restored_message(traced, upstream, trace_dir):
+    upstream.post("/v1/messages").mock(return_value=stream_response(sse(*FULL_STREAM)))
+    await traced(legs=ALL).post("/v1/messages", json=STREAM_BODY, headers=SESSION)
+    *_, back, client_out = records(trace_dir)
+    assert client_out["leg"] == "client_out"
+    assert client_out["complete"] is True
+    restored = [{"type": "text", "text": f"Hi {EMAIL}"}]
+    assert client_out["payload"] == back["payload"] | {"content": restored}
+
+
+@pytest.mark.parametrize(
+    ("headers", "content", "detector", "session_id", "file"),
+    [
+        (SESSION, b"{", "regex", "sess-1", "sess-1.jsonl"),
+        (SESSION, json.dumps(BODY).encode(), "failing", "sess-1", "sess-1.jsonl"),
+        ({}, json.dumps(BODY).encode(), "regex", None, "_no-session.jsonl"),
+        ({SESSION_HEADER: ""}, json.dumps(BODY).encode(), "regex", None, "_no-session.jsonl"),
+    ],
+    ids=["invalid JSON", "scrubbing failed", "no session header", "empty session header"],
+)
+async def test_request_rejected_before_forwarding_records_only_client_in(
+    make_proxy, regex_detector, upstream, trace_dir, headers, content, detector, session_id, file
+):
+    detectors = [regex_detector] if detector == "regex" else [FailingDetector()]
+    proxy = make_proxy(detectors, tap=FileTap.open(trace_dir, 3600, os.getuid()), trace_legs=ALL)
+    r = await proxy.post("/v1/messages", content=content, headers=headers)
+    assert r.status_code == 400
+    assert not upstream.calls
+    assert [p.name for p in trace_dir.iterdir()] == [file]
+    (client_in,) = records(trace_dir)
+    assert (client_in["leg"], client_in["status"]) == ("client_in", 400)
+    assert client_in["session_id"] == session_id
+    assert client_in["payload"] == ("{" if content == b"{" else BODY)
+
+
+async def test_unreachable_upstream_records_client_in_and_upstream_out_with_502(
+    traced, upstream, trace_dir
+):
+    upstream.post("/v1/messages").mock(side_effect=httpx.ConnectError("refused"))
+    r = await traced(legs=ALL).post("/v1/messages", json=BODY, headers=SESSION)
+    assert r.status_code == 502
+    assert [(t["leg"], t["status"]) for t in records(trace_dir)] == [
+        ("client_in", 502),
+        ("upstream_out", 502),
+    ]
+
+
+async def test_forwarded_upstream_error_recorded_on_client_out(traced, upstream, trace_dir):
+    error = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
+    upstream.post("/v1/messages").mock(return_value=httpx.Response(529, json=error))
+    r = await traced(legs=ALL).post("/v1/messages", json=BODY, headers=SESSION)
+    traces = records(trace_dir)
+    assert [(t["leg"], t["status"]) for t in traces] == [
+        ("client_in", 529),
+        ("upstream_out", 529),
+        ("upstream_in", 529),
+        ("client_out", 529),
+    ]
+    assert traces[-1]["payload"] == r.json() == error
+
+
+async def test_unexpected_exception_records_client_in_with_500(traced, upstream, trace_dir):
+    upstream.post("/v1/messages").mock(return_value=httpx.Response(200, content=b"not json"))
+    with pytest.raises(json.JSONDecodeError):
+        await traced(legs=ALL).post("/v1/messages", json=BODY, headers=SESSION)
+    assert [(t["leg"], t["status"]) for t in records(trace_dir)] == [
+        ("client_in", 500),
+        ("upstream_out", 200),
+        ("upstream_in", 200),
+    ]

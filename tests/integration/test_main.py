@@ -153,6 +153,15 @@ def test_tracing_on_warns_once_naming_legs_and_directory(
     assert len(warnings) == 1
     assert "upstream_in" in warnings[0] and "upstream_out" in warnings[0]
     assert str(trace_dir) in warnings[0]
+    assert "real values" not in warnings[0]
+
+
+def test_raw_legs_warn_that_real_values_are_written(settings, tmp_path, presidio_engine, caplog):
+    with caplog.at_level(logging.WARNING):
+        build_app(tracing(settings, tmp_path / "traces", frozenset(Leg)), presidio_engine)
+    (warning,) = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert all(leg in warning for leg in Leg)
+    assert "real values" in warning
 
 
 def test_startup_sweeps_expired_traces(settings, tmp_path, presidio_engine):

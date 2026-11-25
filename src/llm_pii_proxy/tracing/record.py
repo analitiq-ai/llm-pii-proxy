@@ -18,8 +18,15 @@ log = logging.getLogger(__name__)
 class Leg(StrEnum):
     """In the order a request crosses them, which is the order its records are written in."""
 
+    CLIENT_IN = "client_in"
     UPSTREAM_OUT = "upstream_out"
     UPSTREAM_IN = "upstream_in"
+    CLIENT_OUT = "client_out"
+
+    @property
+    def raw(self) -> bool:
+        """Holds real values: the client side of the proxy, before scrubbing and after restoring."""
+        return self in (Leg.CLIENT_IN, Leg.CLIENT_OUT)
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,13 +128,17 @@ class RequestTrace:
             payload, complete = assembler.message(), assembler.complete
         else:
             payload, complete = _decode(self._bodies[leg]), True
+        # Client legs carry the status the client got; upstream legs Anthropic's, or the client's
+        # when Anthropic never answered.
+        answered = self._upstream_status
+        leg_status = status if leg.raw or answered is None else answered
         return TraceRecord(
             time=now,
             session_id=self.session_id,
             request_id=self.request_id,
             leg=leg,
             route=self.route,
-            status=status if self._upstream_status is None else self._upstream_status,
+            status=leg_status,
             complete=complete,
             payload=payload,
         )

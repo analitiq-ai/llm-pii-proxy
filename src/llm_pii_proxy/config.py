@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     confidential_timeout_s: float = Field(30, gt=0)
     confidential_chunk_chars: int = Field(6000, gt=DEFAULT_OVERLAP)
     confidential_concurrency: int = Field(4, ge=1)
+    media_enabled: bool = False
+    media_ocr_model: str = "deepseek-ocr-2"
+    media_vision_model: str = "glm-5.3-flash"
+    media_concurrency: int = Field(4, ge=1)
+    media_cache_entries: int = Field(256, ge=1)
     trace_legs: Annotated[frozenset[Leg], NoDecode] = frozenset()
     trace_dir: Path = Path("~/.local/state/llm-pii-proxy/traces")
     trace_ttl_h: float = Field(24, gt=0)

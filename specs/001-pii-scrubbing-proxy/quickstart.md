@@ -30,6 +30,11 @@ A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.m
 | `PII_PROXY_CONFIDENTIAL_TIMEOUT_S` | `30` | |
 | `PII_PROXY_CONFIDENTIAL_CHUNK_CHARS` | `6000` | |
 | `PII_PROXY_CONFIDENTIAL_CONCURRENCY` | `4` | |
+| `PII_PROXY_MEDIA_ENABLED` | `false` | image and PDF conversion ([023](../023-media-to-text/plan.md)); needs `pdftoppm` |
+| `PII_PROXY_MEDIA_OCR_MODEL` | `deepseek-ocr-2` | |
+| `PII_PROXY_MEDIA_VISION_MODEL` | `glm-5.3-flash` | |
+| `PII_PROXY_MEDIA_CONCURRENCY` | `4` | |
+| `PII_PROXY_MEDIA_CACHE_ENTRIES` | `256` | |
 
 Invalid values fail at startup.
 

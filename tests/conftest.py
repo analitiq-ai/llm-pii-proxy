@@ -11,6 +11,7 @@ from llm_pii_proxy.config import Settings
 from llm_pii_proxy.detection import DetectedSpan, Detector, Stage
 from llm_pii_proxy.detection.confidential import ConfidentialDetector
 from llm_pii_proxy.detection.presidio import build_engine
+from llm_pii_proxy.media import MediaConverter
 from llm_pii_proxy.operator_lists import OperatorLists
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import SessionStore
@@ -99,6 +100,7 @@ async def make_proxy(upstream):
         confidential: ConfidentialDetector | None = None,
         tap: Tap | None = None,
         trace_legs: frozenset[Leg] = frozenset(),
+        media: MediaConverter | None = None,
     ) -> httpx.AsyncClient:
         upstream_client = httpx.AsyncClient(base_url=UPSTREAM)
         app = create_app(
@@ -107,6 +109,7 @@ async def make_proxy(upstream):
             upstream=upstream_client,
             tap=NullTap() if tap is None else tap,
             trace_legs=trace_legs,
+            media=media,
         )
         proxy = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://proxy")
         clients.extend([upstream_client, proxy])

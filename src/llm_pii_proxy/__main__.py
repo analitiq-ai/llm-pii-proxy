@@ -18,6 +18,7 @@ from llm_pii_proxy.config import Settings
 from llm_pii_proxy.detection.confidential import ConfidentialDetector
 from llm_pii_proxy.detection.gitleaks import SecretDetector
 from llm_pii_proxy.detection.presidio import PresidioDetector, build_engine
+from llm_pii_proxy.media import MediaConverter, require_pdf_renderer
 from llm_pii_proxy.scrub import Pipeline
 from llm_pii_proxy.sessions import SessionStore
 from llm_pii_proxy.tracing.file_tap import FileTap, sweep_periodically
@@ -35,16 +36,27 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
     lists = operator_lists.load(settings.lists_path)
     secrets = SecretDetector(settings.secret_detector_path)
     upstream = httpx.AsyncClient(base_url=settings.upstream_url, timeout=UPSTREAM_TIMEOUT)
-    privatemode, confidential = None, None
-    if settings.confidential_enabled:
+    if settings.media_enabled:
+        require_pdf_renderer()
+    privatemode, confidential, media = None, None, None
+    if settings.confidential_enabled or settings.media_enabled:
         privatemode = httpx.AsyncClient(
             base_url=settings.confidential_url, timeout=settings.confidential_timeout_s
         )
+    if settings.confidential_enabled:
         confidential = ConfidentialDetector(
             privatemode,
             settings.confidential_model,
             settings.confidential_chunk_chars,
             settings.confidential_concurrency,
+        )
+    if settings.media_enabled:
+        media = MediaConverter(
+            privatemode,
+            ocr_model=settings.media_ocr_model,
+            vision_model=settings.media_vision_model,
+            concurrency=settings.media_concurrency,
+            cache_entries=settings.media_cache_entries,
         )
     file_tap = _open_trace_output(settings)
     tap: Tap = NullTap() if file_tap is None else file_tap
@@ -78,6 +90,7 @@ def build_app(settings: Settings, engine: AnalyzerEngine) -> Starlette:
         lifespan=lifespan,
         tap=tap,
         trace_legs=settings.trace_legs,
+        media=media,
     )
 
 

@@ -159,6 +159,22 @@ when Anthropic was unreachable. A Messages or token-count request the proxy reje
 at most `client_in`; one with no session id goes to `_no-session.jsonl`. Every startup with tracing on logs
 a warning naming the legs and the directory, and saying so when real values are written to disk.
 
+### Trace viewer
+
+`viewer/` is a page for reading traces. Serve it on loopback and open http://127.0.0.1:8765:
+
+```bash
+uv run python -m http.server 8765 --bind 127.0.0.1 --directory viewer
+```
+
+Pick the trace directory. The page lists its requests, newest first; select one to see two side-by-side
+comparisons: Sent (`client_in` against `upstream_out`: the replaced values and the notice the proxy adds
+to `system`) and Received (`upstream_in` against `client_out`: what was restored). A leg that was not
+recorded is labelled so, an incomplete one is flagged, and lines that are not trace records are counted per
+file. Pick the directory again to load new records. The browser reads the files itself; the page loads only
+its own files, and its Content-Security-Policy (`connect-src 'none'`) blocks script from sending requests.
+The policy cannot stop navigation, so the page writes trace content into the page only as text.
+
 ## Limits
 
 - **Claude sees whole placeholders, never part of a value.** Tasks that need the literal value (check this

@@ -5,7 +5,6 @@ The text holds the real values the image or PDF did; the scrub that follows repl
 
 import asyncio
 import base64
-import binascii
 import functools
 import hashlib
 import json
@@ -282,7 +281,7 @@ def _validate(block: dict[str, Any], *, enabled: bool) -> _Media:
         raise BadRequest(f"{kind} block data is missing, empty or not a string")
     try:
         data = base64.b64decode(encoded, validate=True)
-    except binascii.Error:
+    except ValueError:
         raise BadRequest(f"{kind} block data is not valid base64") from None
     if media_type not in (IMAGE_TYPES if kind == "image" else {PDF}):
         raise BadRequest(f"{kind} media type {media_type} is not supported")

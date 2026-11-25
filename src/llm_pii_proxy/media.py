@@ -46,6 +46,7 @@ _VISION_SCHEMA = {
     "required": ["document", "description"],
     "properties": {"document": {"type": "boolean"}, "description": {"type": "string"}},
 }
+IMAGE_HEADER = "[Image, converted to text by pii-proxy]"
 _PURPOSE = "media conversion"
 _DISABLED = (
     "images and PDFs are not forwarded; set PII_PROXY_MEDIA_ENABLED=true to convert them "
@@ -292,21 +293,21 @@ def _validate(block: dict[str, Any], *, enabled: bool) -> _Media:
 def _text_block(block: dict[str, Any], converted: "_Converted") -> dict[str, Any]:
     if block["type"] == "document":
         # The title is not part of the cache key, so it is added here rather than cached.
-        n = len(converted.parts)
-        title = block.get("title")
-        name = f'PDF "{title}"' if isinstance(title, str) and title else "PDF"
-        text = (
-            f"[{name}, {n} page{'' if n == 1 else 's'}, converted to text by pii-proxy]"
-            + "".join(
-                f"\n\n--- Page {i} ---\n\n{page}" for i, page in enumerate(converted.parts, 1)
-            )
+        text = pdf_header(block.get("title"), len(converted.parts)) + "".join(
+            f"\n\n--- Page {i} ---\n\n{page}" for i, page in enumerate(converted.parts, 1)
         )
     else:
-        text = "\n\n".join(("[Image, converted to text by pii-proxy]", *converted.parts))
+        text = "\n\n".join((IMAGE_HEADER, *converted.parts))
     out: dict[str, Any] = {"type": "text", "text": text}
     if "cache_control" in block:
         out["cache_control"] = block["cache_control"]
     return out
+
+
+def pdf_header(title: object, pages: int) -> str:
+    """The header a converted PDF's text starts with."""
+    name = f'PDF "{title}"' if isinstance(title, str) and title else "PDF"
+    return f"[{name}, {pages} page{'' if pages == 1 else 's'}, converted to text by pii-proxy]"
 
 
 def _image_part(media_type: str, data: bytes) -> dict[str, Any]:

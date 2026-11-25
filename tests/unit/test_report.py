@@ -11,11 +11,11 @@ def test_header_sorted_by_category_and_summed_over_stages():
     assert r.header_value() == "EMAIL=2,PERSON=1"
 
 
-def test_header_with_skipped_binary():
+def test_header_with_converted_media():
     r = ScrubReport()
     r.add(Category.SECRET, Stage.LOCAL)
-    r.skipped_binary += 2
-    assert r.header_value() == "SECRET=1,skipped_binary=2"
+    r.media_converted += 2
+    assert r.header_value() == "SECRET=1,media_converted=2"
 
 
 def test_empty_header():

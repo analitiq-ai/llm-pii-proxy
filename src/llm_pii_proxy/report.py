@@ -17,7 +17,7 @@ class ScrubReport:
     """One request: placeholders applied to the leaves it scrubbed, by category and stage."""
 
     counts: Counter[tuple[Category, Stage]] = field(default_factory=Counter)
-    skipped_binary: int = 0
+    media_converted: int = 0
     unissued: int = 0
     confidential_unlocated: int = 0
 
@@ -32,8 +32,8 @@ class ScrubReport:
 
     def header_value(self) -> str:
         parts = [_render(self.by_category())]
-        if self.skipped_binary:
-            parts.append(f"skipped_binary={self.skipped_binary}")
+        if self.media_converted:
+            parts.append(f"media_converted={self.media_converted}")
         return ",".join(p for p in parts if p) or "none"
 
     def log_line(self, session_id: str, totals: "SessionTotals") -> str:

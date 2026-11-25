@@ -18,10 +18,11 @@ from llm_pii_proxy.errors import (
     BadRequest,
     ProxyError,
     RouteNotFound,
-    ScrubFailed,
     UnsupportedEncoding,
     UpstreamUnavailable,
+    as_proxy_error,
 )
+from llm_pii_proxy.media import MediaConverter, convert_media
 from llm_pii_proxy.notice import with_notice
 from llm_pii_proxy.report import ScrubReport
 from llm_pii_proxy.restore import restore_message
@@ -60,8 +61,9 @@ def create_app(
     lifespan: Lifespan[Starlette] | None = None,
     tap: Tap,
     trace_legs: frozenset[Leg],
+    media: MediaConverter | None,
 ) -> Starlette:
-    proxy = _Proxy(pipeline, sessions, upstream, tap, trace_legs)
+    proxy = _Proxy(pipeline, sessions, upstream, tap, trace_legs, media)
     routes = [
         Route("/v1/messages", proxy.traced(proxy.messages), methods=["POST"]),
         Route("/v1/messages/count_tokens", proxy.traced(proxy.count_tokens), methods=["POST"]),
@@ -91,8 +93,10 @@ class _Proxy:
         upstream: httpx.AsyncClient,
         tap: Tap,
         trace_legs: frozenset[Leg],
+        media: MediaConverter | None,
     ):
         self._pipeline = pipeline
+        self._media = media
         self._sessions = sessions
         self._upstream = upstream
         self._tap = tap
@@ -168,12 +172,12 @@ class _Proxy:
         body = _parse_body(await request.body())
         session = self._sessions.get(session_id, has_assistant_turns=_has_assistant_turns(body))
         report = ScrubReport()
+        body, report.media_converted = await convert_media(body, self._media)
         leaves = collect_leaves(body)
-        report.skipped_binary = leaves.skipped_binary
         results = await session.scrub_leaves(leaves.texts, self._pipeline, report)
         failures = [r for r in results if isinstance(r, Exception)]
         if failures:
-            raise _as_proxy_error(failures[0])
+            raise as_proxy_error(failures[0], "local scrubbing")
         scrubbed = apply_leaves(body, [r for r in results if isinstance(r, str)])
         return session_id, session, report, with_notice(scrubbed)
 
@@ -268,14 +272,6 @@ def _has_assistant_turns(body: dict[str, Any]) -> bool:
     return any(
         isinstance(m, dict) and m.get("role") == "assistant" for m in body.get("messages", [])
     )
-
-
-def _as_proxy_error(failure: Exception) -> ProxyError:
-    if isinstance(failure, ProxyError):
-        return failure
-    # The cause names only the error type: its message may quote request content.
-    log.error("local scrubbing failed: %s", type(failure).__name__)
-    return ScrubFailed(f"local scrubbing failed ({type(failure).__name__})")
 
 
 def _request_headers(request: Request) -> list[tuple[str, str]]:

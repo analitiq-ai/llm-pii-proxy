@@ -31,6 +31,11 @@ def test_defaults_match_quickstart_table():
     assert s.confidential_timeout_s == 30
     assert s.confidential_chunk_chars == 6000
     assert s.confidential_concurrency == 4
+    assert s.media_enabled is False
+    assert s.media_ocr_model == "deepseek-ocr-2"
+    assert s.media_vision_model == "glm-5.3-flash"
+    assert s.media_concurrency == 4
+    assert s.media_cache_entries == 256
 
 
 def test_reads_prefixed_environment(monkeypatch):
@@ -39,6 +44,11 @@ def test_reads_prefixed_environment(monkeypatch):
     s = Settings()
     assert s.port == 9000
     assert s.confidential_enabled is True
+
+
+def test_media_enabled_read_from_environment(monkeypatch):
+    monkeypatch.setenv("PII_PROXY_MEDIA_ENABLED", "true")
+    assert Settings().media_enabled is True
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "::1", "127.0.0.2"])
@@ -64,6 +74,8 @@ def test_non_loopback_hosts_rejected(host):
         ("confidential_timeout_s", 0),
         ("confidential_concurrency", 0),
         ("confidential_chunk_chars", 200),
+        ("media_concurrency", 0),
+        ("media_cache_entries", 0),
         ("upstream_url", "ftp://api.anthropic.com"),
         ("upstream_url", "https://api.anthropic.com/"),
     ],

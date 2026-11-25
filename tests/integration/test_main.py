@@ -13,6 +13,7 @@ import respx
 import llm_pii_proxy.__main__ as main_module
 from llm_pii_proxy.__main__ import build_app
 from llm_pii_proxy.detection.gitleaks import SecretDetectorStartupError
+from llm_pii_proxy.media import PdfRendererMissing
 from llm_pii_proxy.operator_lists import OperatorListsError
 from llm_pii_proxy.tracing.file_tap import TraceDirError
 from llm_pii_proxy.tracing.record import Leg
@@ -66,7 +67,9 @@ PRIVATEMODE = "http://privatemode.test"
 
 def privatemode_answer(*findings: str) -> httpx.Response:
     content = json.dumps({"findings": [{"text": f} for f in findings]})
-    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    return httpx.Response(
+        200, json={"choices": [{"message": {"content": content}, "finish_reason": "stop"}]}
+    )
 
 
 async def post_through(app, text):
@@ -199,3 +202,37 @@ async def test_periodic_sweep_deletes_expired_traces_while_serving(
                 await asyncio.sleep(0.01)
     await asyncio.sleep(0)
     assert task.cancelled()
+
+
+async def test_media_conversion_runs_when_enabled(
+    settings, presidio_engine, secret_detector_binary, upstream
+):
+    update = {"media_enabled": True, "confidential_url": PRIVATEMODE}
+    app = build_app(settings.model_copy(update=update), presidio_engine)
+    upstream.post("/v1/messages").mock(return_value=message_response("ok"))
+    image = {
+        "type": "image",
+        "source": {"type": "base64", "media_type": "image/png", "data": "iVBO"},
+    }
+    vision = json.dumps({"document": False, "description": "A cat."})
+    with respx.mock(base_url=PRIVATEMODE) as privatemode:
+        privatemode.post("/v1/chat/completions").mock(
+            return_value=httpx.Response(
+                200, json={"choices": [{"message": {"content": vision}, "finish_reason": "stop"}]}
+            )
+        )
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as proxy:
+                body = {"model": "m", "messages": [{"role": "user", "content": [image]}]}
+                r = await proxy.post("/v1/messages", json=body, headers=SESSION)
+    assert r.status_code == 200
+    assert sent(upstream)["messages"][0]["content"][0]["text"].endswith("A cat.")
+
+
+def test_media_enabled_without_pdftoppm_fails_before_serving(
+    settings, presidio_engine, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    with pytest.raises(PdfRendererMissing, match="pdftoppm"):
+        build_app(settings.model_copy(update={"media_enabled": True}), presidio_engine)

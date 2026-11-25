@@ -60,9 +60,9 @@ def test_example_follows_a_context_leaf_of_the_given_size():
 
 
 async def test_unavailable_answer_is_retried_after_a_wait():
-    from llm_pii_proxy.errors import ConfidentialUnavailable
+    from llm_pii_proxy.errors import PrivatemodeUnavailable
 
-    outcomes = [ConfidentialUnavailable("HTTP 429"), ConfidentialUnavailable("HTTP 429"), "ok"]
+    outcomes = [PrivatemodeUnavailable("HTTP 429"), PrivatemodeUnavailable("HTTP 429"), "ok"]
     waits = []
 
     async def scrub():
@@ -76,16 +76,16 @@ async def test_unavailable_answer_is_retried_after_a_wait():
 
 
 async def test_gives_up_with_the_last_failure():
-    from llm_pii_proxy.errors import ConfidentialUnavailable
+    from llm_pii_proxy.errors import PrivatemodeUnavailable
 
     async def scrub():
-        return ConfidentialUnavailable("HTTP 429")
+        return PrivatemodeUnavailable("HTTP 429")
 
     async def sleep(s):
         pass
 
     result = await recall.with_retries(scrub, attempts=2, wait_s=1, sleep=sleep)
-    assert isinstance(result, ConfidentialUnavailable)
+    assert isinstance(result, PrivatemodeUnavailable)
 
 
 async def test_other_failures_are_not_retried():

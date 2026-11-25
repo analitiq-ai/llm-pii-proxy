@@ -14,7 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from llm_pii_proxy.detection import DetectedSpan, Stage
 from llm_pii_proxy.detection.chunking import Chunk, chunk
-from llm_pii_proxy.errors import ConfidentialInvalid, ConfidentialUnavailable, ProxyError
+from llm_pii_proxy.errors import PrivatemodeInvalid, ProxyError
+from llm_pii_proxy.privatemode import complete
 from llm_pii_proxy.vault import Category
 
 SYSTEM_PROMPT = (
@@ -111,24 +112,13 @@ class ConfidentialDetector:
 
     async def _ask(self, text: str) -> list[str] | ProxyError:
         async with self._slots:
-            try:
-                response = await self._client.post("/v1/chat/completions", json=self._request(text))
-            except httpx.TimeoutException:
-                return ConfidentialUnavailable("confidential pass timed out")
-            except httpx.TransportError as e:
-                return ConfidentialUnavailable(
-                    f"confidential pass unreachable ({type(e).__name__})"
-                )
-        if not response.is_success:
-            return ConfidentialUnavailable(
-                f"confidential pass answered HTTP {response.status_code}"
-            )
-        # Causes name only the failure kind: the answer quotes request content.
+            content = await complete(self._client, self._request(text), "confidential pass")
+        if isinstance(content, ProxyError):
+            return content
         try:
-            content = response.json()["choices"][0]["message"]["content"]
             answer = _Answer.model_validate(json.loads(content))
-        except (ValueError, KeyError, IndexError, TypeError, ValidationError):
-            return ConfidentialInvalid("confidential pass returned an invalid answer")
+        except (ValueError, ValidationError):
+            return PrivatemodeInvalid("confidential pass returned an invalid answer")
         return [f.text for f in answer.findings]
 
     def _request(self, text: str) -> dict[str, Any]:

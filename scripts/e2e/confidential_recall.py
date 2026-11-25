@@ -26,7 +26,7 @@ from llm_pii_proxy.config import Settings
 from llm_pii_proxy.detection.confidential import ConfidentialDetector
 from llm_pii_proxy.detection.gitleaks import SecretDetector
 from llm_pii_proxy.detection.presidio import PresidioDetector, build_engine
-from llm_pii_proxy.errors import ConfidentialUnavailable
+from llm_pii_proxy.errors import PrivatemodeUnavailable
 from llm_pii_proxy.report import ScrubReport
 from llm_pii_proxy.scrub import LeafResult, Pipeline
 from llm_pii_proxy.vault import Vault
@@ -70,7 +70,7 @@ async def with_retries(
     """Retry only an unavailable pass (rate limit, timeout); other failures are final."""
     result = await scrub()
     for _ in range(attempts - 1):
-        if not isinstance(result, ConfidentialUnavailable):
+        if not isinstance(result, PrivatemodeUnavailable):
             break
         await sleep(wait_s)
         result = await scrub()

@@ -9,8 +9,9 @@ TABLE = [
     (errors.SecretDetectorUnavailable, 503, "api_error", None),
     (errors.UnsupportedEncoding, 415, "invalid_request_error", None),
     (errors.RouteNotFound, 404, "not_found_error", None),
-    (errors.ConfidentialUnavailable, 503, "api_error", "5"),
-    (errors.ConfidentialInvalid, 502, "api_error", None),
+    (errors.PrivatemodeUnavailable, 503, "api_error", "5"),
+    (errors.PrivatemodeInvalid, 502, "api_error", None),
+    (errors.MediaRenderTimedOut, 503, "api_error", "5"),
     (errors.UpstreamUnavailable, 502, "api_error", None),
 ]
 

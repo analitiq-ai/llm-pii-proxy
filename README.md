@@ -32,6 +32,10 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Optional confidential pass.** A model running in [Privatemode](https://www.privatemode.ai)'s confidential
   computing environment finds identifying descriptions no pattern can, such as "the only left-handed
   cardiologist in Tralee". It sees only text the local pass already scrubbed. Off by default.
+- **Images and PDFs become text before they leave.** Base64 images and PDFs are converted to text on
+  Privatemode: each PDF page is read to Markdown by an OCR model, and each image is described by a vision
+  model and, if it is a document, read to Markdown as well. The text is then scrubbed like any other, and
+  Anthropic gets only that text. Without conversion such a request is refused. Off by default.
 - **Works with Claude Code's own features:** subscription (OAuth) and API-key logins, extended thinking
   across turns, prompt caching. Claude is told placeholders stand in for real values, so it doesn't refuse
   tasks that involve them.
@@ -138,6 +142,30 @@ PII_PROXY_CONFIDENTIAL_ENABLED=true uv run python -m llm_pii_proxy
 
 If Privatemode is down or rate-limited, requests fail with `503` rather than skip the pass.
 
+### Optional: image and PDF conversion
+
+Uses the same Privatemode proxy, and `pdftoppm` (`poppler-utils` on Debian and Ubuntu, `poppler` on Homebrew)
+to render PDF pages; the proxy refuses to start without it.
+
+```bash
+PII_PROXY_MEDIA_ENABLED=true uv run python -m llm_pii_proxy
+```
+
+A converted block is replaced in place by a text block that says it was converted. The text is kept in
+memory (the most recent `PII_PROXY_MEDIA_CACHE_ENTRIES`), so a conversation that replays an image or PDF
+gets the same text without converting it again, and keeps Anthropic's prompt cache. Images and PDFs given by URL or file id are refused, as are media types other than PNG, JPEG, GIF,
+WebP and PDF. If Privatemode is down, requests fail with `503`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PII_PROXY_MEDIA_ENABLED` | `false` | convert images and PDFs; when off, a request holding one is refused with `400` |
+| `PII_PROXY_MEDIA_OCR_MODEL` | `deepseek-ocr-2` | reads PDF pages and document images to Markdown |
+| `PII_PROXY_MEDIA_VISION_MODEL` | `glm-5.3-flash` | describes images and tells whether one is a document |
+| `PII_PROXY_MEDIA_CONCURRENCY` | `4` | Privatemode calls in flight for conversion |
+| `PII_PROXY_MEDIA_CACHE_ENTRIES` | `256` | converted images and PDFs kept in memory |
+
+The URL and timeout are `PII_PROXY_CONFIDENTIAL_URL` and `PII_PROXY_CONFIDENTIAL_TIMEOUT_S`.
+
 ## Configuration
 
 All settings are optional `PII_PROXY_*` environment variables; invalid values stop the proxy at startup. The
@@ -182,6 +210,8 @@ read the traces. The page writes trace content into the page only as text.
   email's format, fix a regex for these phone numbers) can't succeed. Tasks on part of a value (group by
   email domain, take initials) are out of scope: a part a tool extracts reaches Anthropic unscrubbed.
 - **Tool definitions, including MCP tool descriptions, are forwarded unscrubbed.**
+- **Claude never sees an image or PDF itself**, only the text converted from it: layout, handwriting and
+  fine detail in a chart can be lost.
 - **Restarting the proxy loses the mapping.** A conversation in progress may then fail with a signature
   error from Anthropic; start a new conversation. The proxy log says so.
 - **Detection is not perfect.** Local detection misses some values, and the confidential pass catches about

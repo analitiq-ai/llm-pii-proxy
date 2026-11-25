@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from llm_pii_proxy.config import PINNED_GITLEAKS_VERSION
 from llm_pii_proxy.detection import DetectedSpan, Stage
 from llm_pii_proxy.errors import ScrubFailed, SecretDetectorUnavailable
+from llm_pii_proxy.processes import kill_process
 from llm_pii_proxy.vault import Category
 
 RULES_PATH = Path(str(files("llm_pii_proxy.detection").joinpath("gitleaks.toml")))
@@ -93,8 +94,7 @@ class SecretDetector:
             async with asyncio.timeout(2):
                 await process.wait()
         except TimeoutError:
-            process.kill()
-            await process.wait()
+            await kill_process(process)
 
     async def detect(self, texts: Sequence[str]) -> list[list[DetectedSpan]]:
         if not texts:
@@ -123,7 +123,7 @@ class SecretDetector:
             async with asyncio.timeout(self._ready_timeout):
                 line = await process.stdout.readline()
         except TimeoutError:
-            await _kill(process)
+            await kill_process(process)
             raise SecretDetectorStartupError(
                 f"no ready line within {self._ready_timeout}s"
             ) from None
@@ -136,10 +136,10 @@ class SecretDetector:
         try:
             ready = _Ready.model_validate_json(line)
         except ValidationError as e:
-            await _kill(process)
+            await kill_process(process)
             raise SecretDetectorStartupError("malformed ready line") from e
         if ready.gitleaks != self._pinned_version:
-            await _kill(process)
+            await kill_process(process)
             raise SecretDetectorStartupError(
                 f"gitleaks version {ready.gitleaks} differs from pinned {self._pinned_version}"
             )
@@ -170,17 +170,11 @@ class SecretDetector:
         except (TimeoutError, OSError, EOFError, ValueError) as e:
             # ValidationError is a ValueError. The cause stays generic: findings hold secrets.
             self._process = None
-            await _kill(process)
+            await kill_process(process)
             raise SecretDetectorUnavailable(
                 "secret detector crashed, timed out or answered malformed"
             ) from e
         return response.findings
-
-
-async def _kill(process: asyncio.subprocess.Process) -> None:
-    if process.returncode is None:
-        process.kill()
-    await process.wait()
 
 
 def findings_to_spans(text: str, findings: Sequence[Finding]) -> list[DetectedSpan]:

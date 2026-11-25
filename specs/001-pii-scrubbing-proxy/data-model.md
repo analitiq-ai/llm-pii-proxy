@@ -128,7 +128,7 @@ A value on both lists, an empty string, or an unknown category fails startup.
 
 ## Scrub report (FR-017)
 
-Per request: counts by `(category, stage)`, plus counts of skipped non-text parts (images, documents). It holds
+Per request: counts by `(category, stage)`, plus the count of image and PDF blocks converted to text ([023](../023-media-to-text/plan.md)). It holds
 no values or tokens. It is returned as response header `x-pii-proxy-scrubbed: EMAIL=2,PERSON=1,...`, and logged
 as one line per request carrying the session id (an opaque UUID) and the session's running totals per category,
 so a long session can be confirmed as scrubbed.

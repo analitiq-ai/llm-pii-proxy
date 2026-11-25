@@ -16,7 +16,9 @@ EMAIL = "margaret@brightwater.example"
 
 def findings(*texts: str) -> httpx.Response:
     content = json.dumps({"findings": [{"text": t} for t in texts]})
-    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    return httpx.Response(
+        200, json={"choices": [{"message": {"content": content}, "finish_reason": "stop"}]}
+    )
 
 
 def analysed(route) -> list[list[str]]:

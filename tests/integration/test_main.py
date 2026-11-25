@@ -67,7 +67,9 @@ PRIVATEMODE = "http://privatemode.test"
 
 def privatemode_answer(*findings: str) -> httpx.Response:
     content = json.dumps({"findings": [{"text": f} for f in findings]})
-    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+    return httpx.Response(
+        200, json={"choices": [{"message": {"content": content}, "finish_reason": "stop"}]}
+    )
 
 
 async def post_through(app, text):
@@ -215,7 +217,9 @@ async def test_media_conversion_runs_when_enabled(
     vision = json.dumps({"document": False, "description": "A cat."})
     with respx.mock(base_url=PRIVATEMODE) as privatemode:
         privatemode.post("/v1/chat/completions").mock(
-            return_value=httpx.Response(200, json={"choices": [{"message": {"content": vision}}]})
+            return_value=httpx.Response(
+                200, json={"choices": [{"message": {"content": vision}, "finish_reason": "stop"}]}
+            )
         )
         async with app.router.lifespan_context(app):
             transport = httpx.ASGITransport(app=app)

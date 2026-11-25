@@ -64,6 +64,12 @@ class PrivatemodeInvalid(ProxyError):
     error_type = "api_error"
 
 
+class MediaRenderTimedOut(ProxyError):
+    status = 503
+    error_type = "api_error"
+    retry_after = 5
+
+
 class UpstreamUnavailable(ProxyError):
     status = 502
     error_type = "api_error"

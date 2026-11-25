@@ -21,9 +21,15 @@ async def complete(
     if not response.is_success:
         return PrivatemodeUnavailable(f"{purpose} answered HTTP {response.status_code}")
     try:
-        content = response.json()["choices"][0]["message"]["content"]
-    except (ValueError, KeyError, IndexError, TypeError):
+        choice = response.json()["choices"][0]
+        content = choice["message"]["content"]
+        finish_reason = choice.get("finish_reason")
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         return PrivatemodeInvalid(f"{purpose} returned an invalid answer")
     if not isinstance(content, str):
         return PrivatemodeInvalid(f"{purpose} returned an invalid answer")
+    # Anything but a natural stop (e.g. the token limit) is a partial answer: unusable, and a
+    # partial conversion would be cached.
+    if finish_reason != "stop":
+        return PrivatemodeInvalid(f"{purpose} answer was cut off")
     return content

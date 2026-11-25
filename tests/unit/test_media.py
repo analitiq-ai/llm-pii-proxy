@@ -552,4 +552,4 @@ async def test_a_failure_a_request_receives_is_not_logged_again(privatemode, cli
     with pytest.raises(PrivatemodeUnavailable):
         await convert_media(body(image()), converter(client))
     await asyncio.sleep(0.1)
-    assert not caplog.records
+    assert not [r for r in caplog.records if r.name == "llm_pii_proxy"]

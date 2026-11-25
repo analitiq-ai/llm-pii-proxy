@@ -50,7 +50,7 @@ recall and conformance at about 4× the price; with reasoning off, the GLM model
 | Valid JSON matching the schema | For each `text`, every exact occurrence in the chunk becomes a `CONTEXT` span |
 | A finding not found verbatim in the chunk | Dropped and counted as `confidential_unlocated`; the model paraphrased |
 | A finding that overlaps an existing placeholder token | The token is cut out and the parts on either side become spans, exactly as the local stage treats detected spans that overlap fixed spans |
-| Non-2xx, timeout (`PII_PROXY_CONFIDENTIAL_TIMEOUT_S`, default 30), invalid JSON, or schema mismatch | The whole Claude request fails closed (FR-014). Status `503` for transport errors and timeouts, `502` for an invalid answer. Body format in http-interface.md |
+| Non-2xx, timeout (`PII_PROXY_CONFIDENTIAL_TIMEOUT_S`, default 30), invalid JSON, schema mismatch, or an answer cut off (`finish_reason` other than `stop`) | The whole Claude request fails closed (FR-014). Status `503` for transport errors and timeouts, `502` for an invalid or cut-off answer. Body format in http-interface.md |
 
 The pass's findings join the vault like any other detection (FR-013). A leaf is cached once every chunk
 covering it has succeeded (data-model.md, Leaf cache). A leaf touched by a failed chunk isn't cached, so it is

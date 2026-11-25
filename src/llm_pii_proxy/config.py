@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     host: str = "127.0.0.1"
     port: int = Field(8787, ge=1, le=65535)
+    viewer_port: int = Field(8765, ge=1, le=65535)
     upstream_url: str = "https://api.anthropic.com"
     min_score: float = Field(0.4, ge=0, le=1)
     session_idle_ttl_s: int = Field(43200, gt=0)

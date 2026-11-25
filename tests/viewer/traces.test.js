@@ -5,8 +5,7 @@ import {
   groupRequests,
   parseTraceFile,
   payloadOf,
-  traceFiles,
-} from "../../viewer/traces.js";
+} from "../../src/llm_pii_proxy/viewer/static/traces.js";
 
 const LEGS = ["client_in", "upstream_out", "upstream_in", "client_out"];
 
@@ -27,21 +26,6 @@ function line(fields = {}) {
 function records(...lines) {
   return parseTraceFile("s1.jsonl", lines.join("\n")).records;
 }
-
-test("traceFiles keeps the .jsonl files directly inside the picked directory, sorted by name", () => {
-  const picked = [
-    "traces/b.jsonl",
-    "traces/sub/c.jsonl",
-    "traces/notes.txt",
-    "traces/a.jsonl.bak",
-    "traces/a.jsonl",
-  ];
-  assert.deepEqual(traceFiles(picked), [
-    { path: "traces/a.jsonl", name: "a.jsonl" },
-    { path: "traces/b.jsonl", name: "b.jsonl" },
-  ]);
-  assert.deepEqual(traceFiles([]), []);
-});
 
 test("parseTraceFile turns each valid line into a record carrying the file name and the raw line", () => {
   const first = line();

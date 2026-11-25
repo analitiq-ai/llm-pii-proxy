@@ -435,3 +435,28 @@ async def test_a_pdf_render_that_overruns_is_killed_and_refused(client, monkeypa
     pid = int(pid_file.read_text())
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
+
+
+@pytest.mark.parametrize("pdf_first", [True, False])
+async def test_a_privatemode_failure_wins_over_an_unexpected_one(
+    privatemode, client, monkeypatch, tmp_path, pdf_first
+):
+    monkeypatch.setattr(media_module, "PDFTOPPM", str(tmp_path / "missing-pdftoppm"))
+    privatemode.vision_answer = httpx.Response(500)
+    blocks = [pdf(["Jane"]), image()]
+    with pytest.raises(ConfidentialUnavailable):
+        await convert_media(body(*(blocks if pdf_first else blocks[::-1])), converter(client))
+
+
+async def test_a_request_going_away_does_not_cancel_a_shared_conversion(privatemode, client):
+    privatemode.delay = lambda url: 0.1
+    media = converter(client)
+    first = asyncio.create_task(convert_media(body(image()), media))
+    second = asyncio.create_task(convert_media(body(image()), media))
+    await asyncio.sleep(0.02)
+    first.cancel()
+    out, converted = await second
+    assert converted == 1
+    assert out["messages"][0]["content"][0]["type"] == "text"
+    await convert_media(body(image()), media)
+    assert privatemode.calls == {OCR_MODEL: 0, VISION_MODEL: 1}

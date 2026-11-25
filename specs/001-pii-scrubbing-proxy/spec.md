@@ -109,7 +109,8 @@ the detection service only ever received text the local pass had already scrubbe
   reason to skip scrubbing.
 - Detection false positives, for example a variable named `john` or a version number shaped like a phone
   number. Over-scrubbing is acceptable as long as restoration keeps files correct.
-- PII inside images or other binary attachments.
+- PII inside images or other binary attachments: converted to text or refused, see
+  [specs/023-media-to-text](../023-media-to-text/spec.md).
 - The proxy restarts mid-conversation. The session's placeholders are lost, and re-scrubbing the history
   produces different bytes, which can fail the model's signature checks on earlier turns. The proxy logs a hint
   to start a new conversation (research R3).
@@ -212,8 +213,8 @@ the detection service only ever received text the local pass had already scrubbe
 - Pseudonymisation, not anonymisation: the local mapping can re-identify data by design. Its protection comes
   from never leaving the machine.
 - Primary language of PII is English. Other languages are best-effort.
-- PII inside images and binary attachments is out of scope for this feature. Such content is forwarded
-  unchanged and noted in the scrub report.
+- PII inside images and binary attachments is out of scope for this feature;
+  [specs/023-media-to-text](../023-media-to-text/spec.md) covers it.
 - Restoration targets exact placeholders plus a small set of predictable reformatting variants (case only). Arbitrary paraphrase by the model isn't restored.
 - The mapping lives only in memory for the life of the proxy process. Losing it on restart is acceptable (see
   Edge Cases).

@@ -28,16 +28,16 @@ Which blocks: every dict holding a `source` whose `type` is `base64`, `url` or `
 already finds them (`system` and `messages`, thinking blocks untouched). There is one traversal:
 `walker.py` gains `collect_binary_blocks(body)` and `apply_binary_blocks(body, replacements)`, the
 counterparts of `collect_leaves` and `apply_leaves`, built on the same `_walk` rules; `media.py` calls
-them and does not walk the body itself. Every block is checked, in row order, before any conversion
-starts, and the first failure refuses the request.
+them and does not walk the body itself. Every block goes through the first five rows, in order, before
+any conversion starts; the first failure refuses the request.
 
 | Block | Outcome |
 |---|---|
 | type other than `image` or `document` | `BadRequest` 400 naming its type |
 | source `url` or `file` | `BadRequest` 400: "image and PDF blocks given by URL or file id are not supported" |
+| media disabled | `BadRequest` 400 naming `PII_PROXY_MEDIA_ENABLED` (spec scenario 8) |
 | `media_type` missing or not a string; `data` missing, empty, not a string, or not valid base64 (`b64decode(validate=True)`, catching `binascii.Error`) | `BadRequest` 400 naming the block type and what is wrong, never the data |
 | media type other than those below | `BadRequest` 400 naming the media type |
-| media disabled | `BadRequest` 400 naming `PII_PROXY_MEDIA_ENABLED` |
 | `image`, media type `image/png`, `image/jpeg`, `image/gif`, `image/webp` | vision call; OCR call when `document` |
 | `document`, media type `application/pdf` | `pdftoppm -r 150 -png` into a temp dir (deleted after), one OCR call per page |
 | `pdftoppm` exits non-zero | `BadRequest` 400 "PDF could not be rendered" |
@@ -87,7 +87,8 @@ left to receive is logged with its purpose and error type only. Process-wide, in
 - `privatemode.py` (new) holds `complete`; `detection/confidential.py` calls it instead of its own `_ask`
   body.
 - 001 documents: `contracts/http-interface.md` (walk rule for binary sources; proxy-originated errors
-  table), changed in this spec PR; `data-model.md` § Scrub report, changed with `report.py` (T004).
+  table), changed in this spec PR; `contracts/confidential-detection.md` fail-closed row gains the cut-off
+  answer (502), changed with `confidential.py` (T004b); `data-model.md` § Scrub report, changed with `report.py` (T004).
 - `specs/001-pii-scrubbing-proxy/quickstart.md`: the five settings, in its settings table (the full list).
 - README: § Features gains the conversion; `pdftoppm` under requirements; settings by reference to
   quickstart.md.

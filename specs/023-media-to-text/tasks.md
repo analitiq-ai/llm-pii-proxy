@@ -18,22 +18,27 @@ task that makes it pass. Privatemode is mocked with `respx`; tests never call re
   still skips, report field missing.
 - [ ] T004 [US1] Change `walker.py`, `report.py` and `app.py` (`skipped_binary` out, `media_converted` in),
   and `specs/001-pii-scrubbing-proxy/data-model.md` § Scrub report to match. T003 green.
-- [ ] T004a [US1] Tests in `tests/unit/test_privatemode.py` for `privatemode.complete`: timeout,
-  transport error and non-2xx → `PrivatemodeUnavailable`; no string `content` or a `finish_reason` other
-  than `stop` → `PrivatemodeInvalid`; causes name the purpose only. In `tests/unit/test_confidential.py`, a
-  `finish_reason` of `length` → 502 naming the confidential pass only. Red: module missing, confidential
-  pass accepts a cut-off answer.
+- [ ] T004a [US1] Tests in `tests/unit/test_privatemode.py`, one per outcome of `privatemode.complete` in
+  plan.md § Conversion, each asserting the error type and a cause naming the purpose and that failure
+  kind, never content. In `tests/unit/test_confidential.py`, a `finish_reason` of `length` → 502 whose
+  cause names the confidential pass and a cut-off answer. Red: module missing, confidential pass accepts
+  a cut-off answer.
 - [ ] T004b [US1] Add `src/llm_pii_proxy/privatemode.py`; `detection/confidential.py` calls it; rename the
-  two error types in `errors.py` and every use. T004a green.
-- [ ] T005 [US1] Tests in `tests/unit/test_media.py` for `media.py`, one per row of plan.md § Conversion,
-  plus: replacement text format for image (document and not) and PDF (with and without `title`, page
+  two error types in `errors.py` and every use; `contracts/confidential-detection.md` fail-closed row
+  gains the cut-off answer. T004a green.
+- [ ] T005 [US1] Tests in `tests/unit/test_media.py` for `media.py`, one per row of plan.md § Conversion
+  (the malformed row once per condition, including base64 with a non-alphabet character; each cause
+  without the data), plus: the row order (conversion disabled and an unsupported media type → the
+  `PII_PROXY_MEDIA_ENABLED` 400); a valid block followed by an invalid one → 400 with no Privatemode call
+  and nothing cached; replacement text format for image (document and not) and PDF (with and without `title`, page
   order kept under concurrency); `cache_control` carried over; the same block twice converts once and
   yields identical text; overlapping requests share one conversion, and one going away does not cancel
   it; a failed conversion is not cached and leaves the in-flight registry, and one no request receives is
   logged without content; LRU eviction at `media_cache_entries`, an evicted block converting again; at
   most `media_concurrency` calls in flight; OCR and vision request bodies as plan.md states; timeout,
   transport error and 500 → 503, an unparseable vision answer or a `finish_reason` other than `stop` →
-  502 and not cached, a render timeout → 503 with the render process killed, causes without content.
+  502 and not cached, a render timeout → 503 with the render process killed; causes name the purpose and failure kind
+  (plan.md § Conversion), never content.
   Red: module missing.
 - [ ] T006 [US1] Implement `src/llm_pii_proxy/media.py` and add `MediaRenderTimedOut` to `errors.py`.
   T005 green.

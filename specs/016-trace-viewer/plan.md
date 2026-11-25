@@ -76,7 +76,7 @@ specs/016-trace-viewer/
 viewer/
 ├── index.html            # page, CSP meta, directory input, list and comparison areas
 ├── app.js                # DOM wiring: read the picked files, render list, reports and comparisons
-├── traces.js             # pure: parse lines, group by request, derive comparisons (data-model.md)
+├── traces.js             # pure: pick trace files, parse lines, group by request, derive comparisons
 ├── tree.js               # read-only collapsible tree for one-sided comparisons (research R2)
 └── vendor/
     └── json-diff-viewer/ # json-diff-viewer-component 0.6.4 src/lib files + LICENSE, unmodified

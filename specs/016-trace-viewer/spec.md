@@ -64,7 +64,9 @@ it and check the list, both comparisons and the reports against the records.
 - Payloads that differ in shape, not just in text (a field present on one side only): the viewer
   marks the field as added or removed, so nothing is hidden.
 - Payload text containing markup: it is shown as text, never interpreted.
-- Files in the directory that are not trace files: ignored.
+- Files in the directory that are not trace files, including trace files in subdirectories: ignored.
+- A trace file that cannot be read (its permissions forbid it, or it changed after it was picked):
+  the viewer names it as unreadable and still shows the records of the other files.
 
 ## Requirements *(mandatory)*
 

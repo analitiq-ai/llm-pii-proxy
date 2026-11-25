@@ -19,14 +19,23 @@ One valid line of a trace file.
 | `complete` | `complete` | boolean |
 | `line` | the raw line | kept so the payload can be parsed again when the request is selected (research R6) |
 
-A line must be a JSON object with all eight fields and a `payload` field of any JSON value: a body
-that was not JSON is recorded as its text, so a payload can be a string. Anything else,
+A line must be a JSON object with the seven fields above that come from the line, and a `payload`
+field of any JSON value (object, array, string, number, boolean or null): a body that was not JSON is
+recorded as its text, so a payload can be a string. Anything else,
 including a line cut short, counts as invalid for its file (FR-007). Empty lines are not records and
 not invalid.
 
 ## File report
 
-Per trace file: its name and how many invalid lines it has. Shown when any file has one.
+## Trace files
+
+The files of a pick that are read: those ending `.jsonl` directly inside the picked directory, by
+their path relative to it. Files in subdirectories and other files are ignored (FR-001).
+
+## File report
+
+Per trace file: its name, and either how many invalid lines it has or, when it could not be read,
+the name of the read error (research R4). Shown when any file has an invalid line or failed to read.
 
 ## Traced request
 

@@ -46,12 +46,19 @@
 ## R4. Reading the traces
 
 - **Decision**: the operator picks the trace directory with a directory file input
-  (`<input type="file" webkitdirectory>`); the page reads the `*.jsonl` files at its top level in the
-  browser. Picking again rereads it (FR-011).
+  (`<input type="file" webkitdirectory>`). On each pick the page clears the previous list and
+  selection, keeps the `*.jsonl` files at the top level of the picked directory (one pure function,
+  shared with the tests), reads each file on its own straight away, and then clears the input, so
+  picking the same directory again is a new pick with new files (FR-011). A file whose read fails is
+  listed in the file report with the error's name; the other files are still shown.
 - **Rationale**: the browser reads the files as the operator, so the 0700/0600 modes the proxy
   enforces stay as they are, and nothing is copied (FR-009). Supported by Chromium and Firefox.
   Chromium asks "Upload N files to this site?" before reading; nothing is uploaded, the page has no
-  way to send data (R5).
+  way to send data (R5). A picked file is a snapshot: checked with Chromium 2026-11-25, a picked file
+  read once, then appended to, then read again failed the second read with `NotReadableError`. The
+  proxy appends to the active session's file, so the page never keeps picked files to read later,
+  and a read that fails is reported rather than dropped. The input lists files in subdirectories too,
+  so selection keeps only those directly inside the picked directory.
 - **Alternatives considered**: the File System Access directory picker (Chromium only).
 
 ## R5. Nothing leaves the machine

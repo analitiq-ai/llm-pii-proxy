@@ -15,8 +15,8 @@ The viewer is a reader of the format the proxy already writes; it defines no for
 
 ## Pinned by a test
 
-A pytest test (tasks.md T008) writes records with the proxy's own `FileTap` and `TraceRecord`, runs
+A pytest test (tasks.md T009) writes records with the proxy's own `FileTap` and `TraceRecord`, runs
 the viewer's parsing and grouping over them under Node, and checks the result. It catches a change to
 the writer that breaks the viewer on the records it writes: a field renamed, dropped or retyped on
-those records, or a change to how files are named. It does not catch a change the viewer would only
-meet on records it does not write, such as files moved into subdirectories.
+those records, or a change to how files are named or where they are placed. It covers only the
+cases it writes.

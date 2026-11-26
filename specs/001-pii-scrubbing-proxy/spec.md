@@ -133,7 +133,9 @@ the detection service only ever received text the local pass had already scrubbe
 - **FR-004**: The system MUST replace each detected value with a placeholder that names its category and is
   stable for the life of the conversation: same value, same placeholder.
 - **FR-005**: The system MUST restore original values in everything the model sends back: displayed text, and
-  the inputs of actions Claude Code will carry out, such as file writes, edits and commands.
+  the inputs of actions Claude Code will carry out, such as file writes, edits and commands. The strings of
+  the model's content that are restored MUST be decided by the same rule that decides which are scrubbed
+  (specs/028-replay-as-sent FR-007).
 - **FR-006**: The system MUST restore values correctly when responses are delivered incrementally, including
   placeholders split across increments, without showing partial or raw placeholders to the user. Exception:
   the model's thinking content keeps its placeholders, because altering it breaks signature checks (research

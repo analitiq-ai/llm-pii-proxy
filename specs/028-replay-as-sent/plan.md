@@ -1,20 +1,43 @@
 # Implementation Plan: Claude's own replies are replayed as Anthropic sent them
 
-**Spec**: [spec.md](spec.md) · **Issue**: #28 · **Depends on**: #31
+**Spec**: [spec.md](spec.md) · **Issues**: #28, #31
 
 ## Summary
 
-The session's leaf cache already maps a leaf's hash to the bytes sent for it. A reply now adds entries to
-it: for each string of the reply, `sha256(string as restored) → string as Anthropic sent it`. A replayed
-string is then a cache hit and never reaches a detector. No new matching, no new store, one code path for
-streamed and non-streamed replies.
+Two changes, in this order, in one story:
 
-## Dependency on #31
+1. **One content rule** (FR-007) in `walker.py`, used by the request scrub, the non-streamed restore, the
+   streamed restore and recording (FR-008). Every string Claude Code receives restored is then one a replay
+   scrubs, which closes #31.
+2. **Replies recorded into the leaf cache.** The cache already maps a leaf's hash to the bytes sent for it.
+   A reply adds `sha256(string as restored) → string as Anthropic sent it` for each string the rule covers.
+   A replayed string is then a cache hit and never reaches a detector (#28). No new matching and no new
+   store; one code path for streamed and non-streamed replies.
 
-#31 makes one rule decide which strings of model content are content, and the scrub and both restore
-paths use it. This plan records exactly the strings that rule covers, so each recorded string is one
-Claude Code received restored and one a replay would scrub. Implementation starts after #31 merges, on
-the walk it leaves.
+## Content rule (`src/llm_pii_proxy/walker.py`)
+
+`_walk` gains one case: inside the value of an `input` key, every string, object keys included, goes to
+`on_leaf`, and no skip-list, thinking or binary rule applies. Outside it, the walk is as today. A key goes to
+`on_leaf` before its value, so `collect_leaves` and `apply_leaves` keep one order, and `apply_leaves`
+rebuilds each object with its replaced keys in the same positions.
+
+`walk_model_content(node, on_leaf)` applies the same `_walk` to model content of a reply, a whole `content`
+list, one block or one delta, keeping a block with a binary source as it is instead of raising. It is the
+only entry point for the reply side, so the scrub and every reply path share one rule.
+
+## Restoring (`restore.py`, `sse.py`)
+
+`restore_content(node, vault) -> (node, unissued)` is `walk_model_content` with `restore_text` as `on_leaf`.
+
+- Non-streamed: `restore_message` restores `body["content"]` with `restore_content`.
+- Streamed: `content_block_start` restores its `content_block` with `restore_content`. A
+  `content_block_delta` of type `text_delta` or `input_json_delta` is restored incrementally by the
+  holdback restorer as today; `thinking_delta` and `signature_delta` pass unchanged; any other delta is
+  restored whole with `restore_content`. An event whose payload restores to itself is yielded as received,
+  byte for byte. Unissued counts reach the report as today.
+
+Two keys of one object that restore to the same text keep the last value on both paths: the dict built by
+the walk, and the JSON text Claude Code parses, both keep the last.
 
 ## Recording (`src/llm_pii_proxy/sessions.py`)
 
@@ -30,20 +53,16 @@ Every key is computed before the first entry is written, so a failure records no
 entry is a hash and Anthropic's string; the skip above keeps out every string in which the scrub would
 find a vault value (FR-006).
 
-After #31, both restore paths apply `restore_text`'s token-to-value rule to exactly the strings the
-content rule covers. Non-streamed, nothing is awaited between restoring and recording, so each key will be
-the hash of the string Claude Code got. Streamed, a string is restored earlier, delta by delta, and can
-still come out differently at recording time, for example where the model wrote a token the vault issued
-only after the stream had passed it. Such a string misses the cache when replayed and is scrubbed as today.
-Either way the value sent for a key is text Anthropic wrote.
+Both restore paths apply `restore_text`'s token-to-value rule to exactly the strings the content rule
+covers. Non-streamed, nothing is awaited between restoring and recording, so each key is the hash of the
+string Claude Code got. Streamed, a string is restored earlier, delta by delta, and can still come out
+differently at recording time, for example where the model wrote a token the vault issued only after the
+stream had passed it. Such a string misses the cache when replayed and is scrubbed as today. Either way
+the value sent for a key is text Anthropic wrote.
 
-## Walker (`src/llm_pii_proxy/walker.py`)
-
-`collect_replayed_leaves(reply) -> list[str]`: the strings of `reply["content"]` that the content rule
-covers, in walk order. Only `content` is walked (FR-001): the message's `role` is not recorded, so a
-replay's role string is scrubbed as today. A block with a binary source yields no strings instead of
-raising: on replay it never reaches the leaf walk, because it is converted to text or the request is
-refused first (specs/023-media-to-text).
+`collect_replayed_leaves(reply) -> list[str]` collects, with `walk_model_content`, the strings of
+`reply["content"]` in walk order. Only `content` is walked (FR-001): the message's `role` is not recorded,
+so a replay's role string is scrubbed as today.
 
 ## Where replies are recorded (`src/llm_pii_proxy/replies.py`, `app.py`)
 
@@ -66,15 +85,17 @@ import it from there.
 
 ## Governing documents
 
-Changed in this spec PR: 001 `spec.md` FR-002, `contracts/http-interface.md` § Which strings are scrubbed,
-`data-model.md` § Leaf cache, and README § Features.
+Changed in this spec PR: 001 `spec.md` FR-002 and FR-005, `contracts/http-interface.md` § Which strings are
+scrubbed and § Responses, `data-model.md` § Leaf cache and § Stream restoration state, and README § Features.
 
 ## Testing
 
-Unit tests for `collect_replayed_leaves`, `Session.remember_reply` and `ReplyRecorder`; integration tests
-through the app with upstream mocked by `respx` and a stub detector that flags a span of the #28 script and
-records every text it receives. No real model or detector is needed: the defect is which strings reach
-detection, not what NER finds in them.
+Unit tests for the content rule on every path, `collect_replayed_leaves`, `Session.remember_reply` and
+`ReplyRecorder`; integration tests through the app with upstream mocked by `respx` and a stub detector that
+flags a span of the #28 script and records every text it receives. No real model or detector is needed: the
+defects are which strings reach detection and restoration, not what NER finds in them.
 
-Two confidential-pass tests expect a replayed reply string to reach the pass
-(`tests/integration/test_confidential_pass.py`); they change to the new expectation before the code does.
+Existing tests that expect the old rule change to the new expectation before the code does:
+`test_walker.py::test_system_string_and_messages_at_any_depth` and `::test_keys_never_scrubbed` (keys inside
+an `input` value are now scrubbed), and two confidential-pass tests that expect a replayed reply string to
+reach the pass (`tests/integration/test_confidential_pass.py`).

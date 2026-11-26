@@ -149,8 +149,12 @@ Per streamed response, per content block index:
 |---|---|---|---|
 | `text` | `text_delta.text` | holdback restorer | raw value |
 | `tool_use`, `server_tool_use`, other `input_json_delta` blocks | `input_json_delta.partial_json` | holdback restorer | value JSON-string-escaped (`json.dumps(v)[1:-1]`) |
-| `thinking`, `redacted_thinking`, unknown | n/a | none | passed through byte-for-byte |
+| `thinking`, `redacted_thinking` | n/a | none | passed through byte-for-byte |
 
 One restorer with a per-block escape function. Tokens can't occur outside a JSON string, because their
 characters aren't valid JSON there, so tool input can stream through incrementally like text and is never held
 back until it ends. Holding it back would starve Claude Code's stream idle timeout during long file writes.
+
+The block of each `content_block_start`, and every delta other than `text_delta`, `input_json_delta`,
+`thinking_delta` and `signature_delta`, MUST be restored whole by the content rule (contracts/http-interface.md
+§ Responses, [specs/028-replay-as-sent](../028-replay-as-sent/spec.md) FR-008).

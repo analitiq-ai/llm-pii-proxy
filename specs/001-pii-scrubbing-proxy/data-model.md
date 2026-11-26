@@ -91,18 +91,25 @@ One string value inside a request body that may carry user content. Which leaves
 
 ## Leaf cache
 
-Per session: raw leaf text → the scrubbed text sent for it.
+Per session: raw leaf text → the text sent for it.
 
 | Field | Type | Rule |
 |---|---|---|
-| key | sha256 of the raw leaf text | |
-| value | the scrubbed leaf text | |
+| key | sha256 of the raw leaf text | for a reply entry, the string as restored: what a replay sends |
+| value | the scrubbed leaf text | for a reply entry, the string as Anthropic sent it |
 
 This is required for **correctness**, not only for speed. A `thinking` block's signature fingerprints every
 byte sent before it (research.md R3). Each re-sent history leaf must therefore scrub to exactly the bytes sent
 the first time, even though the vault has grown since and the detectors (NER, the confidential pass) aren't
 guaranteed to repeat themselves. It is also what makes FR-012 and SC-004 achievable: only cache-miss leaves are
 analysed, and only those go to the confidential pass.
+
+**Entries recorded from replies** ([specs/028-replay-as-sent](../028-replay-as-sent/spec.md)): for each
+successful `/v1/messages` reply, before its last byte reaches the client, every string a replay of it would
+hold is recorded with key the sha256 of the string restored with the session's vault and value the string
+as Anthropic sent it.
+A replayed string is then a cache hit, so no detector runs on text Anthropic wrote. A streamed reply is
+recorded only if its stream completed. Recording never replaces an entry or a pending scrub.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 

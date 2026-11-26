@@ -49,6 +49,11 @@ or refused before it ([specs/023-media-to-text/plan.md](../../023-media-to-text/
 raises if one does. `source` objects of type `text` (plain-text documents) are scrubbed. The walk is a skip-list, not an allow-list,
 so a block type the API adds later is scrubbed by default, which is the safe direction.
 
+A string Claude Code replays exactly as the proxy returned it in an earlier reply of the session is not
+scrubbed again: it is sent as Anthropic wrote it, placeholders included (data-model.md § Leaf cache,
+[specs/028-replay-as-sent](../../028-replay-as-sent/spec.md)). Anthropic wrote every byte of it, so this
+sends no value Anthropic does not already have.
+
 ## Placeholder notice (FR-019)
 
 After scrubbing, the proxy appends one constant text block to `system` (to the end of the string if `system` is

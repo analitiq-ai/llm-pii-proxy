@@ -105,11 +105,11 @@ guaranteed to repeat themselves. It is also what makes FR-012 and SC-004 achieva
 analysed, and only those go to the confidential pass.
 
 **Entries recorded from replies** ([specs/028-replay-as-sent](../028-replay-as-sent/spec.md)): for each
-successful `/v1/messages` reply, before its last byte reaches the client, every string a replay of it would
-hold is recorded with key the sha256 of the string restored with the session's vault and value the string
-as Anthropic sent it.
-A replayed string is then a cache hit, so no detector runs on text Anthropic wrote. A streamed reply is
-recorded only if its stream completed. Recording never replaces an entry or a pending scrub.
+successful `/v1/messages` reply, before its last byte reaches the client, the session MUST record every
+string of its `content` that the scrub covers, with key the sha256 of the string restored with the
+session's vault and value the string as Anthropic sent it, so a replay of it is a cache hit and reaches no
+detector. It MUST NOT record a streamed reply whose stream did not complete, a string whose restore meets a
+token the vault has not issued, or anything over an existing entry or a pending scrub.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 

@@ -22,6 +22,9 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
   entities apart across turns and Anthropic's prompt cache keeps working.
 - **Everything that carries content is scrubbed:** the system prompt, messages, tool results, and tool
   inputs replayed in history.
+- **Claude's own replies are replayed as written.** A reply Claude Code sends back in history must reach
+  Anthropic as Anthropic wrote it, placeholders included, without being scanned again by detectors that
+  could garble Claude's own code ([specs/028](specs/028-replay-as-sent/spec.md)).
 - **Everything Claude Code acts on is restored:** text, and tool inputs such as file writes and edits, so
   files on disk get the real values.
 - **Streaming-safe.** A placeholder split across stream events is buffered and never emitted half-restored.

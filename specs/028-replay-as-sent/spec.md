@@ -12,7 +12,9 @@ tool call, and the model rewrites correct files.
 
 Decided with the user (2026-11-26): fix the replay only (#28 direction 1), with no regex and no
 per-scenario handling. Detection false positives on code that does not come from the model (#28 directions
-2 and 3) move to #29.
+2 and 3) move to #29. Review found that the strings the proxy restores and the strings the scrub covers
+differ, which already sends real values upstream on replay; that moves to #31, which lands first
+(Assumptions).
 
 ## Root cause
 
@@ -62,17 +64,20 @@ detector never received them.
   token the model wrote that the vault issued only after the stream passed it. That string misses the
   cache when replayed and is scrubbed as today.
 - A non-2xx response records nothing.
-- If recording fails (a stream event the assembler cannot read), the reply still reaches Claude Code
-  unchanged; nothing of it is recorded, the failure is logged with its error type only, and a replay is
-  scrubbed as today.
+- If recording fails, streamed or not (a stream event the assembler cannot read, an error while
+  recording), the reply still reaches Claude Code unchanged; nothing of it is recorded, the failure is
+  logged with its error type only, and a replay is scrubbed as today.
 - A string the session already holds in its leaf cache, or is scrubbing, keeps its entry: bytes already
   sent are never changed (data-model.md § Leaf cache).
 - After a proxy restart or session eviction nothing is recorded, so replayed history is scrubbed as today.
 - A `thinking` or `redacted_thinking` block is untouched on both paths, as today.
 - A block in a reply with a binary source (a document a server tool fetched) records nothing: on replay it
   is converted to text or the request is refused before the scrub (specs/023-media-to-text).
-- A token-shaped string the vault never issued, written by the model, is replayed as written, not escaped
-  as `LITERAL`: Anthropic wrote it.
+- A reply string holding a token the vault has not issued is not recorded. Recorded verbatim, the vault
+  could later issue that token for a real value, and one token would stand for two things (001 FR-011). A
+  replay of it is scrubbed as today, the token escaped as `LITERAL`.
+- Once #31 has merged, a string its content rule leaves out, such as a block's `id`, is neither restored
+  nor scrubbed, so it is replayed as Anthropic sent it without being recorded.
 - `count_tokens` requests use the same leaf cache, so a replayed reply counts as it will be sent.
 
 ## Requirements *(mandatory)*
@@ -80,8 +85,9 @@ detector never received them.
 ### Functional Requirements
 
 - **FR-001**: For each successful `/v1/messages` reply, streamed or not, the session records every string
-  a replay of the reply would hold: the hash of the string restored with the session's vault maps to the
-  string as Anthropic sent it. A streamed reply is recorded only once its stream completes.
+  of the reply's `content` that the content rule (#31) covers: the hash of the string restored with the
+  session's vault maps to the string as Anthropic sent it. A string whose restore meets a token the vault
+  has not issued is not recorded. A streamed reply is recorded only once its stream completes.
 - **FR-002**: A reply is recorded before its last byte reaches Claude Code: before `message_stop` is
   forwarded, or before the non-streamed body is returned. Claude Code cannot replay a reply it has not
   received in full.
@@ -90,7 +96,8 @@ detector never received them.
 - **FR-004**: Recording never replaces a leaf cache entry or a pending scrub.
 - **FR-005**: A leaf not recorded is scrubbed as today, fail closed.
 - **FR-006**: Recording stores no real value: the key is a hash, and the value is Anthropic's text, which
-  holds placeholders where the restored text holds values. Nothing is logged.
+  holds placeholders where the restored text holds values. No string of the reply is logged; a recording
+  failure logs its error type only.
 
 ## Success Criteria *(mandatory)*
 
@@ -101,6 +108,9 @@ detector never received them.
 
 ## Assumptions
 
+- Implementation follows #31, which will make one rule decide which strings of model content are
+  content, for the scrub and both restore paths. Every string recorded is then one Claude Code received
+  restored and one a replay would scrub.
 - Claude Code replays a reply's strings as it received them: text blocks as streamed, tool inputs as the
   JSON it parsed. A string it changes is a cache miss and is scrubbed.
 - Sending Anthropic its own text leaks nothing: every value in it is either a placeholder or text the

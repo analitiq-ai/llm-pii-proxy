@@ -123,7 +123,8 @@ the detection service only ever received text the local pass had already scrubbe
   Claude Code passes through it. It MUST need nothing more than pointing Claude Code at the proxy's address.
 - **FR-002**: The system MUST scan every part of an outbound request that can carry user content: system
   instructions, user messages, file contents and command output returned to the model, and earlier model
-  actions replayed in history.
+  actions replayed in history. A string the session recorded from one of its own replies is the exception:
+  it MUST be sent as recorded, as Anthropic wrote it (specs/028-replay-as-sent).
 - **FR-003**: The system MUST detect at least these categories locally: personal names, email addresses, phone
   numbers, postal addresses, payment card numbers, bank account numbers (IBAN), national ID numbers (US SSN, UK
   NHS number), and IP addresses. It MUST also detect credentials and secrets (API keys, access tokens, passwords, private keys,

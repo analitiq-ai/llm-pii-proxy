@@ -109,7 +109,8 @@ successful `/v1/messages` reply, before its last byte reaches the client, the se
 string of its `content` that the scrub covers, with key the sha256 of the string restored with the
 session's vault and value the string as Anthropic sent it, so a replay of it is a cache hit and reaches no
 detector. It MUST NOT record a streamed reply whose stream did not complete, a string whose restore meets a
-token the vault has not issued, or anything over an existing entry or a pending scrub.
+token the vault has not issued, a string that holds in plain text a value the vault holds, or anything over
+an existing entry or a pending scrub.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 

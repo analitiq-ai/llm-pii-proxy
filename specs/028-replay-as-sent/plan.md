@@ -20,11 +20,15 @@ the walk it leaves.
 
 `Session.remember_reply(reply)` takes the reply as Anthropic sent it, in the shape of a non-streamed
 response. For each string of `walker.collect_replayed_leaves(reply)`, `restore_text(string, self.vault)`
-gives the restored text and its count of unissued tokens. A string with an unissued token is skipped
-(spec edge cases, 001 FR-011). For every other string the key is `sha256(restored text)`, and unless that
-key is in the leaf cache or pending, the cache maps it to the string (FR-004). Every key is computed
-before the first entry is written, so a failure records nothing of the reply. The restored text itself is
-not stored; only its hash is (FR-006).
+gives the restored text and its count of unissued tokens. A string is skipped when it has an unissued
+token (001 FR-011), or when Anthropic's string itself holds, in plain text, a value the vault holds (001
+FR-018; the vault is seeded with the always-scrub list). That check is the scrub's exact known-value match
+(`scrub._known_spans`), shared rather than copied. For every other string the key is
+`sha256(restored text)`, and unless that key is in the leaf cache or pending, the cache maps it to the
+string (FR-004). Entries are written in walk order, so within one reply the first string for a key wins.
+Every key is computed before the first entry is written, so a failure records nothing of the reply. An
+entry is a hash and Anthropic's string; the skip above keeps out every string in which the scrub would
+find a vault value (FR-006).
 
 After #31, both restore paths apply `restore_text`'s token-to-value rule to exactly the strings the
 content rule covers. Non-streamed, nothing is awaited between restoring and recording, so each key will be
@@ -36,10 +40,10 @@ Either way the value sent for a key is text Anthropic wrote.
 ## Walker (`src/llm_pii_proxy/walker.py`)
 
 `collect_replayed_leaves(reply) -> list[str]`: the strings of `reply["content"]` that the content rule
-covers, in walk order. A message's `role` is not part of the reply, so it is not collected: a replay's
-role string is scrubbed as today. A block with a binary source yields no strings instead of raising: on
-replay it never reaches the leaf walk, because it is converted to text or the request is refused first
-(specs/023-media-to-text).
+covers, in walk order. Only `content` is walked (FR-001): the message's `role` is not recorded, so a
+replay's role string is scrubbed as today. A block with a binary source yields no strings instead of
+raising: on replay it never reaches the leaf walk, because it is converted to text or the request is
+refused first (specs/023-media-to-text).
 
 ## Where replies are recorded (`src/llm_pii_proxy/replies.py`, `app.py`)
 

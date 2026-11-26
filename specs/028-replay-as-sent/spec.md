@@ -30,9 +30,9 @@ leaf cache then fixes that text for the rest of the session.
 ### User Story 1 - Claude sees its own tool calls as it wrote them (Priority: P1)
 
 A developer works with Claude Code through the proxy. Claude writes a script with the Write tool, runs a
-command, answers in prose. On every later request, the history Anthropic receives holds those replies
-exactly as Anthropic produced them, placeholders included, however the detectors would have judged the
-restored text.
+command, answers in prose. On every later request, each string of those replies that the proxy recorded
+(FR-001) reaches Anthropic exactly as Anthropic produced it, placeholders included, however the detectors
+would have judged the restored text.
 
 **Why this priority**: today Claude is shown corrupted copies of its own output, rewrites correct files,
 and tells the user its output is garbled.
@@ -45,14 +45,14 @@ detector never received them.
 **Acceptance Scenarios**:
 
 1. **Given** a non-streamed reply, **When** Claude Code replays it unchanged in the next request, **Then**
-   each of its strings reaches Anthropic exactly as Anthropic sent it, and no detector or confidential
-   pass receives it.
+   each of its recorded strings (FR-001) reaches Anthropic exactly as Anthropic sent it, and no detector
+   or confidential pass receives it.
 2. **Given** a streamed reply that ended with `message_stop`, **When** Claude Code replays it unchanged,
    **Then** the same holds.
-3. **Given** a reply string that held placeholders, **When** it is replayed, **Then** Anthropic receives
-   the placeholders it wrote, not new ones.
-4. **Given** a reply string without placeholders, **When** it is replayed, **Then** it too reaches
-   Anthropic unchanged.
+3. **Given** a recorded reply string that held placeholders the vault had issued, **When** it is
+   replayed, **Then** Anthropic receives the placeholders it wrote, not new ones.
+4. **Given** a recorded reply string without placeholders, **When** it is replayed, **Then** it too
+   reaches Anthropic unchanged.
 5. **Given** a later request holding user text, tool results, or a reply string Claude Code changed,
    **When** it is sent, **Then** those strings are scrubbed as today.
 
@@ -76,6 +76,10 @@ detector never received them.
 - A reply string holding a token the vault has not issued is not recorded. Recorded verbatim, the vault
   could later issue that token for a real value, and one token would stand for two things (001 FR-011). A
   replay of it is scrubbed as today, the token escaped as `LITERAL`.
+- A reply string that holds, in plain text, a value the vault holds is not recorded. The vault is seeded
+  with the always-scrub list, so this covers those values too, which 001 FR-018 says are always replaced.
+  A replay of it is scrubbed as today. Only the placeholder version of such a string can then be recorded,
+  so one key never serves both.
 - Once #31 has merged, a string its content rule leaves out, such as a block's `id`, is neither restored
   nor scrubbed, so it is replayed as Anthropic sent it without being recorded.
 - `count_tokens` requests use the same leaf cache, so a replayed reply counts as it will be sent.
@@ -87,17 +91,19 @@ detector never received them.
 - **FR-001**: For each successful `/v1/messages` reply, streamed or not, the session records every string
   of the reply's `content` that the content rule (#31) covers: the hash of the string restored with the
   session's vault maps to the string as Anthropic sent it. A string whose restore meets a token the vault
-  has not issued is not recorded. A streamed reply is recorded only once its stream completes.
+  has not issued, or that holds in plain text a value the vault holds, is not recorded. A streamed reply
+  is recorded only once its stream completes.
 - **FR-002**: A reply is recorded before its last byte reaches Claude Code: before `message_stop` is
   forwarded, or before the non-streamed body is returned. Claude Code cannot replay a reply it has not
   received in full.
 - **FR-003**: A leaf whose hash is recorded is sent as recorded. No detector and no confidential pass
   receives it.
-- **FR-004**: Recording never replaces a leaf cache entry or a pending scrub.
+- **FR-004**: Recording never replaces a leaf cache entry or a pending scrub; within one reply, the first
+  string for a key is kept.
 - **FR-005**: A leaf not recorded is scrubbed as today, fail closed.
-- **FR-006**: Recording stores no real value: the key is a hash, and the value is Anthropic's text, which
-  holds placeholders where the restored text holds values. No string of the reply is logged; a recording
-  failure logs its error type only.
+- **FR-006**: Recording stores no value the vault holds: the key is a hash, and the value is Anthropic's
+  text, which holds placeholders where the restored text holds vault values (FR-001). No string of the
+  reply is logged; a recording failure logs its error type only.
 
 ## Success Criteria *(mandatory)*
 

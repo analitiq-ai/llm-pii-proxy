@@ -20,11 +20,11 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
   - secrets with a gitleaks sidecar: API keys, tokens, private keys, credentials in `.env` files.
 - **Reversible and stable.** One value keeps one placeholder for the whole session, so Claude can tell
   entities apart across turns and Anthropic's prompt cache keeps working.
-- **Everything that carries content is scrubbed:** the system prompt, messages, tool results, and tool
-  inputs replayed in history.
-- **Claude's own replies are replayed as written.** A reply Claude Code sends back in history must reach
-  Anthropic as Anthropic wrote it, placeholders included, without being scanned again by detectors that
-  could garble Claude's own code ([specs/028](specs/028-replay-as-sent/spec.md)).
+- **Everything that carries content is scrubbed:** the system prompt, messages and tool results.
+- **Claude's own replies are replayed as written.** A string the proxy recorded from one of Claude's
+  replies must be sent back as Anthropic wrote it, placeholders included, without being scanned again by
+  detectors that could garble Claude's own code. A string it did not record, such as one holding a value
+  from your always-scrub list, is scrubbed as usual ([specs/028](specs/028-replay-as-sent/spec.md)).
 - **Everything Claude Code acts on is restored:** text, and tool inputs such as file writes and edits, so
   files on disk get the real values.
 - **Streaming-safe.** A placeholder split across stream events is buffered and never emitted half-restored.

@@ -49,6 +49,16 @@ or refused before it ([specs/023-media-to-text/plan.md](../../023-media-to-text/
 raises if one does. `source` objects of type `text` (plain-text documents) are scrubbed. The walk is a skip-list, not an allow-list,
 so a block type the API adds later is scrubbed by default, which is the safe direction.
 
+Inside the value of an `input` key (a tool call's input, free-form JSON the model writes), the walk MUST
+scrub every string, object keys included, and the rules above MUST NOT apply there
+([specs/028-replay-as-sent](../../028-replay-as-sent/spec.md) FR-007). One implementation of this rule MUST
+decide both which strings are scrubbed here and which are restored in § Responses.
+
+A string the session recorded from one of its own earlier replies MUST be sent as recorded, and not
+scrubbed again ([specs/028-replay-as-sent](../../028-replay-as-sent/spec.md)): Anthropic's own text,
+placeholders included, which gives Anthropic no value it does not already have. Which strings are
+recorded, and when, is data-model.md § Leaf cache; every other string is scrubbed.
+
 ## Placeholder notice (FR-019)
 
 After scrubbing, the proxy appends one constant text block to `system` (to the end of the string if `system` is
@@ -65,8 +75,8 @@ altered (research.md R3).
 
 | Upstream response | Proxy response |
 |---|---|
-| `2xx` JSON (`stream` false) | every string in `content[*]` restored, except `thinking` / `redacted_thinking` blocks |
-| `2xx` SSE (`stream` true) | event order and framing preserved. `text_delta` and `input_json_delta` restored incrementally (data-model.md, Stream restoration state). Every other event (`ping`, `thinking_delta`, `signature_delta`, `message_*`, `error`, unknown) is forwarded immediately and unchanged |
+| `2xx` JSON (`stream` false) | every string of `content` that § Which strings are scrubbed covers MUST be restored, and no other ([specs/028](../../028-replay-as-sent/spec.md) FR-008) |
+| `2xx` SSE (`stream` true) | event order and framing preserved. `text_delta` and `input_json_delta` restored incrementally (data-model.md, Stream restoration state). The block of each `content_block_start`, and every other delta except `thinking_delta` and `signature_delta`, MUST be restored whole by the same rule, and an event in which nothing is restored MUST be forwarded byte-identical ([specs/028](../../028-replay-as-sent/spec.md) FR-008). Every other event (`ping`, `thinking_delta`, `signature_delta`, `message_*`, `error`, unknown) is forwarded immediately and unchanged |
 | non-`2xx` | body and status forwarded **unmodified**: Claude Code's recovery matches the upstream wording. If a `400` body mentions `signature` or `cannot be modified` and the session was created by a request that already held assistant turns (so the proxy joined mid-conversation, e.g. after a restart), the proxy logs a hint with the session id: start a new Claude Code conversation |
 
 Every response to a content route carries `x-pii-proxy-scrubbed: <CATEGORY>=<n>,...` (FR-017).

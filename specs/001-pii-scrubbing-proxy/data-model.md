@@ -91,18 +91,26 @@ One string value inside a request body that may carry user content. Which leaves
 
 ## Leaf cache
 
-Per session: raw leaf text → the scrubbed text sent for it.
+Per session: raw leaf text → the text sent for it.
 
 | Field | Type | Rule |
 |---|---|---|
-| key | sha256 of the raw leaf text | |
-| value | the scrubbed leaf text | |
+| key | sha256 of the raw leaf text | for a reply entry, the string as restored: what a replay sends |
+| value | the scrubbed leaf text | for a reply entry, the string as Anthropic sent it |
 
 This is required for **correctness**, not only for speed. A `thinking` block's signature fingerprints every
 byte sent before it (research.md R3). Each re-sent history leaf must therefore scrub to exactly the bytes sent
 the first time, even though the vault has grown since and the detectors (NER, the confidential pass) aren't
 guaranteed to repeat themselves. It is also what makes FR-012 and SC-004 achievable: only cache-miss leaves are
 analysed, and only those go to the confidential pass.
+
+**Entries recorded from replies** ([specs/028-replay-as-sent](../028-replay-as-sent/spec.md)): for each
+successful `/v1/messages` reply, before its last byte reaches the client, the session MUST record every
+string of its `content` that the scrub covers, with key the sha256 of the string restored with the
+session's vault and value the string as Anthropic sent it, so a replay of it is a cache hit and reaches no
+detector. It MUST NOT record a streamed reply whose stream did not complete, a string whose restore meets a
+token the vault has not issued, a string that holds in plain text a value the vault holds, or anything over
+an existing entry or a pending scrub.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 
@@ -141,8 +149,12 @@ Per streamed response, per content block index:
 |---|---|---|---|
 | `text` | `text_delta.text` | holdback restorer | raw value |
 | `tool_use`, `server_tool_use`, other `input_json_delta` blocks | `input_json_delta.partial_json` | holdback restorer | value JSON-string-escaped (`json.dumps(v)[1:-1]`) |
-| `thinking`, `redacted_thinking`, unknown | n/a | none | passed through byte-for-byte |
+| `thinking`, `redacted_thinking` | n/a | none | passed through byte-for-byte |
 
 One restorer with a per-block escape function. Tokens can't occur outside a JSON string, because their
 characters aren't valid JSON there, so tool input can stream through incrementally like text and is never held
 back until it ends. Holding it back would starve Claude Code's stream idle timeout during long file writes.
+
+The block of each `content_block_start`, and every delta other than `text_delta`, `input_json_delta`,
+`thinking_delta` and `signature_delta`, MUST be restored whole by the content rule (contracts/http-interface.md
+§ Responses, [specs/028-replay-as-sent](../028-replay-as-sent/spec.md) FR-008).

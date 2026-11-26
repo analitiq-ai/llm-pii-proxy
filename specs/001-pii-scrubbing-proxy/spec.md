@@ -123,7 +123,8 @@ the detection service only ever received text the local pass had already scrubbe
   Claude Code passes through it. It MUST need nothing more than pointing Claude Code at the proxy's address.
 - **FR-002**: The system MUST scan every part of an outbound request that can carry user content: system
   instructions, user messages, file contents and command output returned to the model, and earlier model
-  actions replayed in history.
+  actions replayed in history. A string the session recorded from one of its own replies is the exception:
+  it MUST be sent as recorded, as Anthropic wrote it (specs/028-replay-as-sent).
 - **FR-003**: The system MUST detect at least these categories locally: personal names, email addresses, phone
   numbers, postal addresses, payment card numbers, bank account numbers (IBAN), national ID numbers (US SSN, UK
   NHS number), and IP addresses. It MUST also detect credentials and secrets (API keys, access tokens, passwords, private keys,
@@ -132,7 +133,9 @@ the detection service only ever received text the local pass had already scrubbe
 - **FR-004**: The system MUST replace each detected value with a placeholder that names its category and is
   stable for the life of the conversation: same value, same placeholder.
 - **FR-005**: The system MUST restore original values in everything the model sends back: displayed text, and
-  the inputs of actions Claude Code will carry out, such as file writes, edits and commands.
+  the inputs of actions Claude Code will carry out, such as file writes, edits and commands. The strings of
+  the model's content that are restored MUST be decided by the same rule that decides which are scrubbed
+  (specs/028-replay-as-sent FR-007).
 - **FR-006**: The system MUST restore values correctly when responses are delivered incrementally, including
   placeholders split across increments, without showing partial or raw placeholders to the user. Exception:
   the model's thinking content keeps its placeholders, because altering it breaks signature checks (research

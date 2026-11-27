@@ -42,8 +42,9 @@ Issue #29's four causes, after this change:
 ### User Story 1 - Code reaches Anthropic as written, PII is still replaced (Priority: P1)
 
 A developer works through the proxy on code, logs and data files. Names, emails, phone numbers and
-addresses in them are still replaced with placeholders, at the recall SC-002 requires. Code without PII
-reaches Anthropic unchanged, so Claude sees tool output and the files it reads back as they are on disk.
+addresses in them are still replaced with placeholders, at the recall SC-002 requires. Code identifiers are
+not taken for names or addresses, so Claude sees tool output and the files it reads back as they are on disk,
+less the values the detectors replace.
 
 **Why this priority**: garbled code makes Claude rewrite correct files (#28).
 
@@ -80,6 +81,7 @@ input; run the recall benchmark.
   (plan.md § Measurements). The span is replaced as returned, so Anthropic sees `PII_EMAIL_0002-host`
   there, and restoration gives back `mgarcia@build-host`. Accepted as a known limitation; no rule is
   layered over the span.
+- An IP literal in code, such as `0.0.0.0` in a Dockerfile, is still replaced as `IP` (001 FR-003, FR-002).
 - A leaf longer than Privacy Filter's context window is split into windows by Privacy Filter itself.
 - A Privacy Filter span that overlaps a pattern or gitleaks span is resolved like any two overlapping spans
   (001 data-model.md § DetectedSpan).
@@ -116,9 +118,9 @@ input; run the recall benchmark.
 - **SC-001**: #28's reproduction script, scrubbed with the configured detectors and a vault holding only
   `jdoe` from the always-scrub list, comes back byte-identical except that `jdoe` is replaced.
 - **SC-002**: The benchmark corpus meets 001 SC-003's recall targets.
-- **SC-003**: The code set, the 19 code samples without PII from plan.md § Measurements committed as a
-  fixture, scrubbed with the configured detectors, gets no `PERSON`, `ADDRESS`, `EMAIL` or `PHONE`
-  placeholder.
+- **SC-003**: The code set, the 19 code samples of plan.md § Measurements that hold no name, email, phone
+  number or address, committed as a fixture and scrubbed with the configured detectors, gets no `PERSON`,
+  `ADDRESS`, `EMAIL` or `PHONE` placeholder.
 - **SC-004**: On `cuda`, 001 SC-004 holds: under 0.5 s added before the first streamed byte for 20 KB of new
   content. Measured on a GPU machine; none is available while this story is built.
 
@@ -127,6 +129,6 @@ input; run the recall benchmark.
 - The developer's machine runs the proxy (001 Assumptions). A remote or shared GPU host is out of scope.
 - PyTorch publishes no wheels for macOS on x86-64, so the proxy runs on Linux (x86-64, ARM) and macOS on
   Apple silicon. Apple silicon runs Privacy Filter on `cpu`: Privacy Filter supports `cpu` and `cuda` only.
-- The checkpoint takes 2.7 GB on disk. Privacy Filter peaked at 4.3 GB of memory on `cpu` (plan.md).
+- The checkpoint takes 2.8 GB on disk. Privacy Filter peaked at 4.3 GB of memory on `cpu` (plan.md).
 - Privacy Filter is a model: a name it was not trained on can be missed, as spaCy misses some. SC-002 is the
   bound.

@@ -15,8 +15,9 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 ## Features
 
 - **Local detection**, nothing sent anywhere to decide what is sensitive:
-  - personal data with Presidio and spaCy NER: names, emails, phone numbers, postal addresses, payment
-    cards, IBANs, national IDs, IP addresses;
+  - names, emails, phone numbers and postal addresses with OpenAI Privacy Filter, a model run on the machine;
+  - payment cards, IBANs, US SSNs, UK NHS numbers and IP addresses with Presidio's pattern recognizers,
+    checksums included;
   - secrets with a gitleaks sidecar: API keys, tokens, private keys, credentials in `.env` files.
 - **Reversible and stable.** One value keeps one placeholder for the whole session, so Claude can tell
   entities apart across turns and Anthropic's prompt cache keeps working.
@@ -27,11 +28,8 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Streaming-safe.** A placeholder split across stream events is buffered and never emitted half-restored.
 - **Fail closed.** If a request can't be scrubbed it is rejected, never forwarded raw. Unknown API routes
   are refused for the same reason.
-- **Your own lists.** Values that must always be scrubbed (your name, username, email) and words that must
-  never be (`Django`, `Paris`), in a file kept outside any repo.
-- **Optional confidential pass.** A model running in [Privatemode](https://www.privatemode.ai)'s confidential
-  computing environment finds identifying descriptions no pattern can, such as "the only left-handed
-  cardiologist in Tralee". It sees only text the local pass already scrubbed. Off by default.
+- **Your own lists.** Values that must always be scrubbed (your name, username, email) and exact values that
+  must never be (`Django`, `Paris`), in a file you keep outside any repo.
 - **Images and PDFs become text before they leave.** Base64 images and PDFs are converted to text on
   Privatemode: each PDF page is read to Markdown by an OCR model, and each image is described by a vision
   model and, if it is a document, read to Markdown as well. The text is then scrubbed like any other, and
@@ -206,7 +204,7 @@ read the traces. The page writes trace content into the page only as text.
 
 ## Limits
 
-- **Claude sees whole placeholders, never part of a value.** Tasks that need the literal value (check this
+- **A placeholder hides the value it stands for.** Tasks that need the literal value (check this
   email's format, fix a regex for these phone numbers) can't succeed. Tasks on part of a value (group by
   email domain, take initials) are out of scope: a part a tool extracts reaches Anthropic unscrubbed.
 - **Tool definitions, including MCP tool descriptions, are forwarded unscrubbed.**
@@ -214,8 +212,11 @@ read the traces. The page writes trace content into the page only as text.
   fine detail in a chart can be lost.
 - **Restarting the proxy loses the mapping.** A conversation in progress may then fail with a signature
   error from Anthropic; start a new conversation. The proxy log says so.
-- **Detection is not perfect.** Local detection misses some values, and the confidential pass catches about
-  three in four identifying descriptions in realistic sessions.
+- **Detection is not perfect.** Local detection misses some values.
+- **A value Privacy Filter cuts short reaches Anthropic in part.** `ssh mgarcia@build-host` can arrive as
+  `ssh PII_EMAIL_0002-host` ([specs/029-privacy-filter](specs/029-privacy-filter/spec.md) Edge Cases).
+- **Without an NVIDIA GPU, new content is slow to scrub.** Privacy Filter on `cpu` took about 12 s per KB
+  with 8 threads ([specs/029-privacy-filter](specs/029-privacy-filter/plan.md) § Measurements).
 
 ## Development
 

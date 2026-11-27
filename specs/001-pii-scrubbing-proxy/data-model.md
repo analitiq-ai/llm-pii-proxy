@@ -9,16 +9,15 @@ underscores.
 
 | Category | Source | Covers |
 |---|---|---|
-| `PERSON` | local NER | personal names |
-| `EMAIL` | local pattern | email addresses |
-| `PHONE` | local pattern | phone numbers |
-| `ADDRESS` | local NER (location) | postal addresses and locations |
+| `PERSON` | Privacy Filter ([029](../029-privacy-filter/spec.md) FR-001) | personal names |
+| `EMAIL` | Privacy Filter ([029](../029-privacy-filter/spec.md) FR-001) | email addresses |
+| `PHONE` | Privacy Filter ([029](../029-privacy-filter/spec.md) FR-001) | phone numbers |
+| `ADDRESS` | Privacy Filter ([029](../029-privacy-filter/spec.md) FR-001) | postal addresses |
 | `CARD` | local pattern + checksum | payment card numbers |
 | `IBAN` | local pattern + checksum | bank account numbers |
 | `NATIONALID` | local pattern | national ID numbers (SSN, etc.) |
 | `IP` | local pattern | IPv4 / IPv6 addresses |
 | `SECRET` | local secret rules | API keys, tokens, passwords, private keys, credentialed connection strings |
-| `CONTEXT` | confidential pass | context-dependent PII flagged by the second pass |
 | `LITERAL` | escaping | pre-existing text in the user's data that matches the placeholder grammar (FR-011) |
 
 ## Placeholder
@@ -74,10 +73,10 @@ Output of a detector, the input to placeholder assignment.
 |---|---|---|
 | `start`, `end` | int | offsets into the text it was detected in; `0 ≤ start < end ≤ len(text)` |
 | `category` | Category | |
-| `stage` | `local` \| `confidential` | used only for the scrub report |
 
 Edge trimming: before assignment, a span is shrunk to exclude leading and trailing whitespace and the
-delimiters `, ; | " '` and tab, and it is split at line breaks. A detector that swallows a CSV comma or a row
+delimiters `, ; | " '` and tab, and it is split at line breaks. [029](../029-privacy-filter/spec.md) FR-006 adds
+`/` and `\` to the delimiters and keeps every delimiter on a `SECRET` span. A detector that swallows a CSV comma or a row
 number would otherwise remove structure from what the model sees (research.md R0).
 
 Overlap resolution: when spans overlap, the longest span wins, then the earliest start. The result is a set of
@@ -100,9 +99,8 @@ Per session: raw leaf text → the scrubbed text sent for it.
 
 This is required for **correctness**, not only for speed. A `thinking` block's signature fingerprints every
 byte sent before it (research.md R3). Each re-sent history leaf must therefore scrub to exactly the bytes sent
-the first time, even though the vault has grown since and the detectors (NER, the confidential pass) aren't
-guaranteed to repeat themselves. It is also what makes FR-012 and SC-004 achievable: only cache-miss leaves are
-analysed, and only those go to the confidential pass.
+the first time, even though the vault has grown since and a model detector such as Privacy Filter isn't
+guaranteed to repeat itself. It is also what makes SC-004 achievable: only cache-miss leaves are analysed.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 
@@ -121,14 +119,14 @@ Loaded once at startup from `PII_PROXY_LISTS_PATH`. Shared by all sessions, read
 
 | Field | Type | Rule |
 |---|---|---|
-| `always_scrub` | map[Category → list[str]] | `LITERAL` and `CONTEXT` not allowed. Seeds each new vault |
+| `always_scrub` | map[Category → list[str]] | `LITERAL` not allowed. Seeds each new vault |
 | `never_scrub` | list[str] | exact, case-sensitive. Drops matching detected spans (placeholder-format.md, stage 3). Merged with the built-in list: `Claude`, `claude`, `Claude Code`, `Claude Agent SDK`, `Anthropic`, `Claude Opus`, `Claude Sonnet`, `Claude Haiku`, `Claude Fable` (research R3). An `always_scrub` value still wins: known values are matched before detection |
 
 A value on both lists, an empty string, or an unknown category fails startup.
 
 ## Scrub report (FR-017)
 
-Per request: counts by `(category, stage)`, plus the count of image and PDF blocks converted to text ([023](../023-media-to-text/plan.md)). It holds
+Per request: counts by category, plus the count of image and PDF blocks converted to text ([023](../023-media-to-text/plan.md)). It holds
 no values or tokens. It is returned as response header `x-pii-proxy-scrubbed: EMAIL=2,PERSON=1,...`, and logged
 as one line per request carrying the session id (an opaque UUID) and the session's running totals per category,
 so a long session can be confirmed as scrubbed.

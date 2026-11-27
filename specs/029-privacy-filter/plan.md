@@ -13,7 +13,7 @@ recognizers, called directly without an NLP engine. The confidential pass goes, 
 A synthetic set of 50 samples, every value invented: 20 code samples (Python, JavaScript, Go, Rust, Bash,
 SQL, JSON, YAML, a Dockerfile, a Makefile, log lines, a traceback, a diff, #28's reproduction script among
 them), 10 code samples with names, emails or addresses, 5 tool outputs, 9 prose samples with PII and 6
-without. #28's script holds one username, `jdoe` in a path; the other 19 code samples hold no PII. 39 names
+without. #28's script holds one username, `jdoe` in a path; the other 19 code samples hold no name, email, phone number or address. 39 names
 and addresses are scored; usernames and bare city names count as neither a hit nor a miss. The set holds 6
 emails and no phone numbers. spaCy ran as `build_engine()` configures it, at `min_score` 0.4. Privacy Filter
 ran at its defaults on `cpu`, 8 threads, on a 16-core machine. Spans were trimmed with `trim_span` before
@@ -95,7 +95,7 @@ creates the Privatemode client only when media conversion is enabled, from `priv
 
 | Variable | Default | |
 |---|---|---|
-| `PII_PROXY_PRIVACY_FILTER_PATH` | `~/.cache/llm-pii-proxy/privacy-filter/original` | checkpoint folder: `config.json` and `*.safetensors`; `~` expanded |
+| `PII_PROXY_PRIVACY_FILTER_PATH` | `~/.cache/llm-pii-proxy/privacy-filter/original` | checkpoint folder: `config.json` and `*.safetensors`; `~` expanded and resolved against the startup directory, as `config.py`'s `_absolute` does for the other paths |
 | `PII_PROXY_PRIVACY_FILTER_DEVICE` | `cpu` | `cpu` or `cuda` |
 | `PII_PROXY_PRIVATEMODE_URL` | `http://127.0.0.1:8080` | media conversion only; a base URL |
 | `PII_PROXY_PRIVATEMODE_TIMEOUT_S` | `30` | above 0 |
@@ -131,21 +131,24 @@ the corpus's `context` field, `test_fail_closed.py`'s error message):
   `tests/integration/test_history_stability.py`, `test_main.py`, `test_media.py`, `test_no_leak.py`,
   `tests/unit/test_config.py`, `test_operator_lists.py`, `test_presidio_detector.py`, `test_report.py`,
   `test_scrub_leaf.py`, `test_sessions.py`, `test_spans.py`, `test_vault.py`.
-- Changed, documents that describe the code (T014): `README.md`, `CLAUDE.md`, 001 `data-model.md`, `plan.md`,
-  `quickstart.md`, 023 `plan.md`.
+- Changed, documents that say how to run and develop the code (T014): `README.md` § Install and
+  § Configuration, `CLAUDE.md`, 001 `plan.md` and `quickstart.md`, 023 `plan.md`.
 
 ## Governing documents
 
 The requirements and contracts change in this spec PR, so they hold before the story starts:
 - 001 `spec.md`: the scope paragraph, User Story 2, FR-012 to FR-015, SC-003's wording, SC-004, SC-005, SC-006,
-  the edge case on false positives, the assumptions and dependencies that name them.
+  the edge case on false positives, the assumption that a placeholder replaces the whole value, the assumptions
+  and dependencies that name them.
+- 001 `data-model.md`: the category sources, `CONTEXT`, a span's stage, edge trimming, the leaf cache's
+  detectors, the operator lists' categories, the scrub report's key.
+- `README.md` § Features and § Limits, which `CLAUDE.md` makes requirements.
 - 001 `contracts/placeholder-format.md` § Outbound, `contracts/http-interface.md` § Errors;
   `contracts/confidential-detection.md` deleted, with the links to it in 001 `quickstart.md` and `research.md`
   and its entry in 001 `plan.md`.
 - 023 `spec.md` FR-004.
 
-`README.md` § Features and § Limits describe the proxy as it runs, so they change with the code (T014); the
-requirements they summarize are FR-001 to FR-006 here. 001's `research.md`, `tasks.md`, checklists and critiques record what was decided and done then, and stay.
+001's `research.md`, `tasks.md`, checklists and critiques record what was decided and done then, and stay.
 
 ## Testing
 

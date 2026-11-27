@@ -184,7 +184,8 @@ it would without the proxy.
   descriptions is a known gap.
 - Tasks that need the model to *see* a literal value cannot succeed, for example "does this email look valid"
   or "fix the regex for these phone formats". Placeholders hide the value's content by design. Each placeholder
-  replaces the whole value: no part of it, such as an email's domain, stays visible.
+  replaces the whole detected span. [029](../029-privacy-filter/spec.md) Edge Cases accepts that a span can end
+  inside a value, leaving the rest of the value visible.
 - Tasks that need to see or operate on part of a value (an email's domain, a name's initials, a key's prefix)
   are out of scope. The proxy cannot prevent them: Claude's tools run on the real files, so a part extracted by
   a tool comes back in the tool output unscrubbed.

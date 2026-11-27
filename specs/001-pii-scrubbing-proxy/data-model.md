@@ -98,14 +98,14 @@ Per session: raw leaf text → the scrubbed text sent for it.
 
 This is required for **correctness**, not only for speed. A `thinking` block's signature fingerprints every
 byte sent before it (research.md R3). Each re-sent history leaf must therefore scrub to exactly the bytes sent
-the first time, even though the vault has grown since and NER isn't guaranteed to repeat itself. It is also
-what makes SC-004 achievable: only cache-miss leaves are analysed.
+the first time, even though the vault has grown since and could now replace values in it first found in later
+leaves. It is also what makes SC-004 achievable: only cache-miss leaves are analysed.
 
 No LRU eviction. Memory is bounded by the session's own history size and released when the session is evicted.
 
 **Single-flight**: concurrent requests in one session (parallel subagents re-send the same system and CLAUDE.md
-leaves) must not scrub the same leaf twice, because a non-deterministic detector could give each a different
-result and one of them would then re-send bytes the cache doesn't hold. The first request to miss a leaf
+leaves) must not scrub the same leaf twice, because the vault can grow between the two scrubs, so they could
+give different results and one of them would then re-send bytes the cache doesn't hold. The first request to miss a leaf
 registers a pending entry; any other request needing that leaf awaits it.
 - Success: the leaf's bytes are cached as soon as **that leaf** finishes, even if another leaf in the same
   request later fails. Once computed, they are the leaf's bytes for the life of the session.

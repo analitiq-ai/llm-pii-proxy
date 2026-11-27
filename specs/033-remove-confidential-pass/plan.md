@@ -32,14 +32,15 @@ only when `media_enabled` is true.
 
 From `git grep -lE '[Cc]onfidential|CONFIDENTIAL|CONTEXT|\bStage\b|context-pii' -- ':!specs' ':!.specify'
 ':!.claude' ':!uv.lock'` at this spec's commit, less `tests/fixtures/make_corpus.py`, whose `CONTEXTS` are
-document kinds:
+document kinds, plus `sessions.py`, whose single-flight comment rests on a non-deterministic
+detector:
 
 - Deleted: `detection/confidential.py`, `scripts/e2e/confidential_recall.py`, `tests/fixtures/context-pii/`,
   `tests/integration/test_confidential_pass.py`, `tests/unit/test_confidential.py`,
   `tests/unit/test_confidential_recall.py`, `tests/unit/test_context_pii_fixture.py`.
 - Changed, code: `__main__.py`, `config.py`, `detection/__init__.py`, `detection/addresses.py`,
   `detection/chunking.py`, `detection/gitleaks.py`, `detection/presidio.py`, `operator_lists.py`,
-  `report.py`, `scrub.py`, `vault.py`, `scripts/e2e/media.py`.
+  `report.py`, `scrub.py`, `sessions.py`, `vault.py`, `scripts/e2e/media.py`.
 - Changed, tests: `tests/conftest.py`, `tests/integration/test_history_stability.py`, `test_main.py`,
   `test_media.py`, `tests/unit/test_config.py`, `test_operator_lists.py`, `test_presidio_detector.py`,
   `test_report.py`, `test_scrub_leaf.py`, `test_sessions.py`, `test_spans.py`, `test_vault.py`.
@@ -51,8 +52,8 @@ document kinds:
 The requirements and contracts change in this spec PR, so they hold before the story starts:
 - 001 `spec.md`: the scope paragraph, User Story 2, FR-012 to FR-015, the detected value's stage, SC-004's
   "With only the local pass", SC-005, SC-006, the assumption on accuracy targets, the Story 2 dependency.
-- 001 `data-model.md`: `CONTEXT`, a span's stage, the leaf cache's detectors, the operator lists'
-  categories, the scrub report's key.
+- 001 `data-model.md`: `CONTEXT`, a span's stage, the reasons for the leaf cache and single-flight, the
+  operator lists' categories, the scrub report's key.
 - 001 `contracts/placeholder-format.md` § Outbound and `contracts/http-interface.md` § Errors;
   `contracts/confidential-detection.md` deleted, with the links to it in 001 `quickstart.md` and
   `research.md` and its entry in 001 `plan.md`.

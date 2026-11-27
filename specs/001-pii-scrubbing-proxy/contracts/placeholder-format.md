@@ -33,8 +33,9 @@ Issuing a 10 000th placeholder in one category fails the leaf closed (FR-007).
    data that happens to look like a placeholder is therefore never confused with an issued one (FR-011).
 2. **Known values next.** Every value already in the vault, including the operator's always-scrub values
    seeded at session creation (FR-018), is replaced by its token, longest value first. This happens before
-   detection, so a value detected once is always replaced again, even when a non-deterministic detector (NER)
-   would miss it in a new context.
+   detection, so that a value detected once is replaced again even where NER, which reads the surrounding text,
+   would miss it in a new context. Re-scrubbing a restored value then usually gives back the token the model
+   wrote, which prompt caching relies on.
 
    **Boundary rule**: an occurrence is replaced only if it isn't extended by a word character (`\w`) at an
    edge where the value itself is a word character. So `Al` is replaced in `Al,` and `(Al)` but not in `Alice`

@@ -28,7 +28,7 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Fail closed.** If a request can't be scrubbed it is rejected, never forwarded raw. Unknown API routes
   are refused for the same reason.
 - **Your own lists.** An `always_scrub` list (your name, username, email) and a `never_scrub` list (`Django`,
-  `Paris`), in the file `PII_PROXY_LISTS_PATH` names.
+  `Paris`), in a file you keep outside any repo.
 - **Images and PDFs become text before they leave.** Base64 images and PDFs are converted to text on
   Privatemode: each PDF page is read to Markdown by an OCR model, and each image is described by a vision
   model and, if it is a document, read to Markdown as well. The text is then scrubbed like any other, and

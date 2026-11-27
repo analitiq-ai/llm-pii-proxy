@@ -77,8 +77,8 @@ it would without the proxy.
   requests carry the full conversation and are scrubbed like model requests.
 - Very large requests, such as a long history plus large files, must still be scrubbed in full. Size is never a
   reason to skip scrubbing.
-- Detection false positives, for example a variable named `john` or a version number shaped like a phone
-  number. Over-scrubbing is acceptable as long as restoration keeps files correct.
+- Detection false positives, for example a variable named `john`: Claude sees a placeholder where the code
+  had a name. Code without PII is held to [specs/029-privacy-filter](../029-privacy-filter/spec.md) SC-003.
 - PII inside images or other binary attachments: converted to text or refused, see
   [specs/023-media-to-text](../023-media-to-text/spec.md).
 - The proxy restarts mid-conversation. The session's placeholders are lost, and re-scrubbing the history
@@ -175,8 +175,8 @@ it would without the proxy.
 - Restoration targets exact placeholders plus a small set of predictable reformatting variants (case only). Arbitrary paraphrase by the model isn't restored.
 - The mapping lives only in memory for the life of the proxy process. Losing it on restart is acceptable (see
   Edge Cases).
-- The detection accuracy targets in SC-003 are initial targets. They will be calibrated once a benchmark corpus
-  exists.
+- The detection accuracy targets in SC-003 are measured on the benchmark corpus in
+  `tests/fixtures/corpus/local.jsonl`.
 - Claude remains the working model. Replacing the provider (for example, running Claude Code on Privatemode's
   own models) is out of scope.
 - Tool definitions sent by Claude Code (built-in and MCP tool descriptions) are forwarded unscrubbed. Rewriting

@@ -1,8 +1,7 @@
 # Quickstart & Validation: PII-Scrubbing Proxy
 
 A run-and-validate guide. Contracts: [http-interface](contracts/http-interface.md),
-[placeholder-format](contracts/placeholder-format.md), [confidential-detection](contracts/confidential-detection.md),
-[secret-detector](contracts/secret-detector.md).
+[placeholder-format](contracts/placeholder-format.md), [secret-detector](contracts/secret-detector.md).
 
 ## Prerequisites
 

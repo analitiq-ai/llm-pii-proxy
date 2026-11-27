@@ -9,11 +9,11 @@
 **Input**: User description: "I want to set up a proxy for claude code and use privatemode (in proxy mode) to remove personaly identifyable information from prompts."
 
 Clarified scope (user, 2026-11-21): Privatemode has no PII-removal feature of its own; it runs open-weights
-models inside confidential computing. Scope is therefore two stages. First, a local scrubber: on-machine
-detection of pattern-based and named-entity PII, swapped for reversible placeholders. Second, a confidential
-second pass that sends the already-scrubbed text to a Privatemode-hosted model to catch context-dependent PII
-the local pass missed. The fully scrubbed request then goes to Anthropic/Claude, and original values are
-restored in responses. Claude remains the model doing the work.
+models inside confidential computing. Scope is therefore a local scrubber: on-machine detection of
+pattern-based and named-entity PII, swapped for reversible placeholders. The scrubbed request then goes to
+Anthropic/Claude, and original values are restored in responses. Claude remains the model doing the work. A
+confidential second pass on a Privatemode-hosted model was User Story 2 until the user removed it
+(2026-11-27, [specs/033-remove-confidential-pass](../033-remove-confidential-pass/spec.md)).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -53,36 +53,6 @@ it would without the proxy.
 6. **Given** the local detection cannot process a request (for example, malformed content or an internal
    error), **When** the request is sent, **Then** it is blocked with a clear error and nothing is forwarded to
    the model provider.
-
----
-
-### User Story 2 - Catch context-dependent PII with a confidential second pass (Priority: P2)
-
-Some personal data has no recognisable pattern: a nickname, a job title that identifies one person, a rare
-diagnosis next to a city, or a name the local model does not recognise. After the local pass, the proxy sends
-the already-scrubbed text to a confidential detection service, a model in an attested environment that the
-operator cannot read. The service flags remaining personal data. Flagged values are replaced with placeholders
-the same way as in Story 1 before the request goes to the model provider, and are restored the same way in
-responses.
-
-**Why this priority**: It raises detection beyond what patterns and named-entity recognition can catch, but it
-adds a dependency, latency and cost. Story 1 must already work without it.
-
-**Independent Test**: Use a corpus of context-dependent PII examples that the local pass is known to miss. With
-the second pass enabled, confirm the examples are replaced before leaving for the model provider. Confirm that
-the detection service only ever received text the local pass had already scrubbed.
-
-**Acceptance Scenarios**:
-
-1. **Given** a paragraph "the only left-handed cardiologist at St. Mary's in Tralee" that the local pass leaves
-   intact, **When** the request is sent with the second pass enabled, **Then** the identifying phrase is
-   replaced with a placeholder before reaching the model provider and restored in the response.
-2. **Given** text containing an email the local pass already replaced, **When** it is sent to the detection
-   service, **Then** the service receives the placeholder, never the email.
-3. **Given** a long conversation where earlier turns were already analysed, **When** a new turn is sent,
-   **Then** only content not analysed before is sent to the detection service.
-4. **Given** the detection service is unreachable or returns an unusable answer, **When** a request is sent,
-   **Then** the proxy behaves as configured in FR-014.
 
 ---
 
@@ -147,15 +117,6 @@ the detection service only ever received text the local pass had already scrubbe
   never guessing a value for it.
 - **FR-011**: The system MUST distinguish its own placeholders from identical-looking text already in the
   user's data, so real data is never altered by restoration.
-- **FR-012**: The system MUST, when the second pass is enabled, send to the confidential detection service only
-  text the local pass has already scrubbed, and only content not analysed before in the same conversation.
-- **FR-013**: The system MUST treat values flagged by the confidential detection service exactly like locally
-  detected values: same placeholder scheme, same mapping, same restoration.
-- **FR-014**: When the confidential detection service is enabled but fails (unreachable, times out, or returns
-  an invalid answer), the system MUST block the request with an error naming the cause, the same fail-closed
-  rule as FR-007. Continuing with local scrubbing only is done by disabling the second pass (FR-015), never
-  silently.
-- **FR-015**: The system MUST let the operator enable or disable the second pass without code changes.
 - **FR-016**: The system MUST pass through, unchanged, requests that carry no user content.
 - **FR-017**: The system MUST report, per request and without revealing values, how many items of each
   category were replaced, so the operator can see scrubbing is active.
@@ -171,8 +132,7 @@ the detection service only ever received text the local pass had already scrubbe
 ### Key Entities
 
 - **Conversation**: one Claude Code session's sequence of requests. It is the scope of placeholder stability.
-- **Detected value**: an original piece of personal data, with its category and the detection stage that found
-  it (local or confidential).
+- **Detected value**: an original piece of personal data, with its category.
 - **Placeholder**: the stand-in that replaces a detected value outbound, named by category and sequence number,
   unique within a conversation.
 - **Mapping**: the local, in-memory, two-way association between detected values and placeholders for one
@@ -191,13 +151,9 @@ the detection service only ever received text the local pass had already scrubbe
 - **SC-003**: The local pass detects at least 95% of pattern-based PII (emails, phones, cards, IBANs, IPs,
   national IDs), at least 85% of personal names, and at least 70% of postal addresses in the benchmark corpus,
   and at least 95% of secrets in common credential formats.
-- **SC-004**: With only the local pass, users perceive no meaningful slowdown: the added delay before the first
-  part of a response appears is under 0.5 seconds for typical requests. A typical request carries at most 20 KB
-  of content the proxy hasn't seen before in the conversation. Larger new content adds about 2.3 seconds per
-  100 KB (research R5).
-- **SC-005**: With the second pass enabled, at least 70% of the context-dependent PII examples the local pass
-  misses are replaced before reaching the model provider.
-- **SC-006**: The confidential detection service receives 0 values that the local pass had already detected.
+- **SC-004**: Users perceive no meaningful slowdown: the added delay before the first part of a response appears
+  is under 0.5 seconds for typical requests. A typical request carries at most 20 KB of content the proxy hasn't
+  seen before in the conversation. Larger new content adds about 2.3 seconds per 100 KB (research R5).
 - **SC-007**: 100% of requests that fail scrubbing are blocked, with none forwarded, verified by fault-injection
   tests.
 - **SC-008**: On a fixed set of at least 20 tasks over PII-bearing files, the success rate through the proxy is
@@ -218,8 +174,8 @@ the detection service only ever received text the local pass had already scrubbe
 - Restoration targets exact placeholders plus a small set of predictable reformatting variants (case only). Arbitrary paraphrase by the model isn't restored.
 - The mapping lives only in memory for the life of the proxy process. Losing it on restart is acceptable (see
   Edge Cases).
-- Detection accuracy targets in SC-003 and SC-005 are initial targets. They will be calibrated once a benchmark
-  corpus exists.
+- The detection accuracy targets in SC-003 are measured on the benchmark corpus in
+  `tests/fixtures/corpus/local.jsonl`.
 - Claude remains the working model. Replacing the provider (for example, running Claude Code on Privatemode's
   own models) is out of scope.
 - Tool definitions sent by Claude Code (built-in and MCP tool descriptions) are forwarded unscrubbed. Rewriting
@@ -239,6 +195,3 @@ the detection service only ever received text the local pass had already scrubbe
 
 - Claude Code supports routing its model traffic to a custom endpoint address.
 - An Anthropic account or credentials for the model provider, which the proxy passes through and never stores.
-- For Story 2: a Privatemode account, and the Privatemode proxy running locally to provide encrypted, attested
-  access to its hosted open-weights models. Privatemode serves only as the detection service. It is never the
-  model that does the coding work.

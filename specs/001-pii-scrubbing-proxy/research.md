@@ -288,7 +288,7 @@ by the recorder, and Claude Code direct. 9 sub-tasks scored strictly (exact valu
   [pricing](https://docs.privatemode.ai/pricing/)
 - **Decision**: Default model `gpt-oss-120b` (superseded `glm-flash-latest`; see the T058 results below). It's
   configurable.
-  The contract is in [contracts/confidential-detection.md](contracts/confidential-detection.md). The Privatemode
+  The contract was `contracts/confidential-detection.md`, deleted with the pass (specs/033). The Privatemode
   proxy holds its own key (`--api-key`).
 - **Risk**: the first request of a resumed long session is entirely cache misses and can exceed 200k prompt
   tokens/min. The 429 surfaces as a 503 the client retries (FR-014). Acceptable for the P2 story, and noted in

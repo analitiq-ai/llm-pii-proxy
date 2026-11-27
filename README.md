@@ -27,11 +27,8 @@ file edit, the proxy turns it back into `jane@acme.com` before Claude Code sees 
 - **Streaming-safe.** A placeholder split across stream events is buffered and never emitted half-restored.
 - **Fail closed.** If a request can't be scrubbed it is rejected, never forwarded raw. Unknown API routes
   are refused for the same reason.
-- **Your own lists.** Values that must always be scrubbed (your name, username, email) and words that must
-  never be (`Django`, `Paris`), in a file kept outside any repo.
-- **Optional confidential pass.** A model running in [Privatemode](https://www.privatemode.ai)'s confidential
-  computing environment finds identifying descriptions no pattern can, such as "the only left-handed
-  cardiologist in Tralee". It sees only text the local pass already scrubbed. Off by default.
+- **Your own lists.** An `always_scrub` list (your name, username, email) and a `never_scrub` list (`Django`,
+  `Paris`), in the file `PII_PROXY_LISTS_PATH` names.
 - **Images and PDFs become text before they leave.** Base64 images and PDFs are converted to text on
   Privatemode: each PDF page is read to Markdown by an OCR model, and each image is described by a vision
   model and, if it is a document, read to Markdown as well. The text is then scrubbed like any other, and
@@ -214,8 +211,7 @@ read the traces. The page writes trace content into the page only as text.
   fine detail in a chart can be lost.
 - **Restarting the proxy loses the mapping.** A conversation in progress may then fail with a signature
   error from Anthropic; start a new conversation. The proxy log says so.
-- **Detection is not perfect.** Local detection misses some values, and the confidential pass catches about
-  three in four identifying descriptions in realistic sessions.
+- **Detection is not perfect.** Local detection misses some values.
 
 ## Development
 

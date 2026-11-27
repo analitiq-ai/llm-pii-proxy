@@ -74,9 +74,10 @@ Output of a detector, the input to placeholder assignment.
 | `start`, `end` | int | offsets into the text it was detected in; `0 ≤ start < end ≤ len(text)` |
 | `category` | Category | |
 
-Edge trimming: before assignment, a span is shrunk to exclude leading and trailing whitespace and the
-delimiters `, ; | " '` and tab, and it is split at line breaks. [029](../029-privacy-filter/spec.md) FR-006 adds
-`/` and `\` to the delimiters and keeps every delimiter on a `SECRET` span. A detector that swallows a CSV comma or a row
+Edge trimming: before assignment, a span is shrunk to exclude leading and trailing whitespace, tab included,
+and the delimiters `, ; | " '`, and it is split at line breaks. [029](../029-privacy-filter/spec.md) FR-006 adds
+`/` and `\` to the delimiters and has a `SECRET` span lose only whitespace and line breaks, so `, ; | " ' / \`
+stay at its edges. A detector that swallows a CSV comma or a row
 number would otherwise remove structure from what the model sees (research.md R0).
 
 Overlap resolution: when spans overlap, the longest span wins, then the earliest start. The result is a set of

@@ -1,0 +1,662 @@
+[
+ {
+  "id": "issue28_script",
+  "kind": "code_clean",
+  "text": "import csv\nfrom pathlib import Path\n\nR = \"/Users/jdoe/Documents/Invoices\"\nVENDOR = \"Acme Supplies\"\nUNITS = {\"MILK\": \"L\", \"OIL\": \"kg/L\", \"SKU\": \"pcs\"}\n\nrows = list(csv.reader(open(Path(R) / \"orders.csv\")))\nassert rows[-1][0] == \"2026-01-15\"\nassert len(rows) > 1, \"Page 2 missing\"\n\ndocs = [(r[0], VENDOR, UNITS.get(r[1], \"\")) for r in rows[1:]]\nwith open(Path(R) / \"documents.csv\", \"a\", newline=\"\") as f:\n    csv.writer(f, lineterminator=\"\\n\").writerows(docs)\n",
+  "gold": [
+   {
+    "start": 49,
+    "end": 53,
+    "cat": "PERSON",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "pandas",
+  "kind": "code_clean",
+  "text": "import pandas as pd\n\ndf = pd.read_csv(\"sales.csv\", parse_dates=[\"created_at\"])\nmonthly = df.groupby(df[\"created_at\"].dt.to_period(\"M\"))[\"amount\"].sum()\ntop = df.nlargest(10, \"amount\")[[\"sku\", \"amount\", \"region\"]]\nprint(monthly.tail(3), top.head(), sep=\"\\n\")\n",
+  "gold": []
+ },
+ {
+  "id": "react",
+  "kind": "code_clean",
+  "text": "export function InvoiceRow({ invoice, onSelect }) {\n  const total = invoice.lines.reduce((s, l) => s + l.qty * l.price, 0);\n  return (\n    <tr onClick={() => onSelect(invoice.id)}>\n      <td>{invoice.number}</td>\n      <td className=\"num\">{total.toFixed(2)}</td>\n    </tr>\n  );\n}\n",
+  "gold": []
+ },
+ {
+  "id": "bash_pipeline",
+  "kind": "code_clean",
+  "text": "for f in *.pdf; do\n  /opt/homebrew/bin/pdftotext -layout \"$f\" - | grep -E 'kg/L|mg/dL' | sort -u >> units.txt\ndone\nfind . -name \"*.py\" -not -path \"./.venv/*\" -exec black -q {} +\nxargs -n1 -P4 curl -fsSO < urls.txt\n",
+  "gold": []
+ },
+ {
+  "id": "sql_report",
+  "kind": "code_clean",
+  "text": "SELECT c.customer_id, c.segment, SUM(o.total) AS revenue\nFROM orders o\nJOIN customers c ON c.customer_id = o.customer_id\nWHERE o.created_at >= DATE '2026-01-01'\nGROUP BY c.customer_id, c.segment\nHAVING SUM(o.total) > 1000\nORDER BY revenue DESC;\n",
+  "gold": []
+ },
+ {
+  "id": "json_config",
+  "kind": "code_clean",
+  "text": "{\n  \"name\": \"billing-service\",\n  \"region\": \"eu-west-1\",\n  \"replicas\": 3,\n  \"image\": \"ghcr.io/example/billing:1.4.2\",\n  \"env\": {\"LOG_LEVEL\": \"info\", \"MAX_BATCH\": \"250\"},\n  \"owners\": [\"platform-team\"]\n}\n",
+  "gold": []
+ },
+ {
+  "id": "gh_actions",
+  "kind": "code_clean",
+  "text": "name: ci\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: astral-sh/setup-uv@v5\n      - run: uv sync --frozen\n      - run: uv run pytest -q\n",
+  "gold": []
+ },
+ {
+  "id": "dockerfile",
+  "kind": "code_clean",
+  "text": "FROM python:3.13-slim AS base\nWORKDIR /app\nCOPY pyproject.toml uv.lock ./\nRUN pip install --no-cache-dir uv && uv sync --frozen --no-dev\nCOPY src ./src\nEXPOSE 8080\nCMD [\"uv\", \"run\", \"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8080\"]\n",
+  "gold": []
+ },
+ {
+  "id": "traceback",
+  "kind": "code_clean",
+  "text": "Traceback (most recent call last):\n  File \"/srv/app/worker.py\", line 88, in run\n    batch = loader.next_batch(size=cfg.batch_size)\n  File \"/srv/app/loader.py\", line 41, in next_batch\n    rows = self._cursor.fetchmany(size)\npsycopg.OperationalError: consuming input failed: server closed the connection unexpectedly\n",
+  "gold": []
+ },
+ {
+  "id": "git_diff",
+  "kind": "code_clean",
+  "text": "@@ -12,7 +12,9 @@ def parse_rows(lines):\n-    return [l.split(\",\") for l in lines]\n+    reader = csv.reader(lines)\n+    header = next(reader)\n+    return [dict(zip(header, row)) for row in reader]\n",
+  "gold": []
+ },
+ {
+  "id": "csv_units",
+  "kind": "code_clean",
+  "text": "sku,unit,qty,price\nMILK,L,12,1.09\nOIL,kg/L,3,7.49\nFLOUR,kg,25,0.89\nSALT,g,500,0.002\n",
+  "gold": []
+ },
+ {
+  "id": "go_server",
+  "kind": "code_clean",
+  "text": "func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {\n\tctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)\n\tdefer cancel()\n\tif err := s.db.PingContext(ctx); err != nil {\n\t\thttp.Error(w, \"db unavailable\", http.StatusServiceUnavailable)\n\t\treturn\n\t}\n\tw.WriteHeader(http.StatusNoContent)\n}\n",
+  "gold": []
+ },
+ {
+  "id": "rust_parse",
+  "kind": "code_clean",
+  "text": "fn parse_line(line: &str) -> Result<Record, ParseError> {\n    let mut parts = line.splitn(3, ',');\n    let id = parts.next().ok_or(ParseError::Missing(\"id\"))?.parse::<u64>()?;\n    let name = parts.next().ok_or(ParseError::Missing(\"name\"))?.trim().to_owned();\n    Ok(Record { id, name })\n}\n",
+  "gold": []
+ },
+ {
+  "id": "makefile",
+  "kind": "code_clean",
+  "text": ".PHONY: lint test\nlint:\n\tuv run ruff check src tests\n\tuv run mypy src\ntest:\n\tuv run pytest -q --maxfail=1\n",
+  "gold": []
+ },
+ {
+  "id": "log_lines",
+  "kind": "code_clean",
+  "text": "2026-01-15T10:00:01Z INFO  worker[3] processed batch=17 rows=2500 in 212ms\n2026-01-15T10:00:02Z WARN  worker[1] retrying upload attempt=2 backoff=400ms\n2026-01-15T10:00:05Z ERROR scheduler job=nightly-export status=failed code=E_TIMEOUT\n",
+  "gold": []
+ },
+ {
+  "id": "pytest_test",
+  "kind": "code_clean",
+  "text": "def test_parse_rows_keeps_header_order(tmp_path):\n    p = tmp_path / \"in.csv\"\n    p.write_text(\"b,a\\n2,1\\n\")\n    assert list(parse_rows(p.read_text().splitlines())[0]) == [\"b\", \"a\"]\n",
+  "gold": []
+ },
+ {
+  "id": "regex_code",
+  "kind": "code_clean",
+  "text": "DATE = re.compile(r\"(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})\")\nKEY = re.compile(r\"^[A-Z][A-Z0-9_]*$\")\nm = DATE.match(s)\nif m and KEY.match(m.group(\"year\")) is None:\n    raise ValueError(s)\n",
+  "gold": []
+ },
+ {
+  "id": "units_dict",
+  "kind": "code_clean",
+  "text": "CONVERSIONS = {\n    (\"mg/dL\", \"mmol/L\"): 0.0555,\n    (\"kWh\", \"MJ\"): 3.6,\n    (\"L\", \"mL\"): 1000,\n    (\"lb\", \"kg\"): 0.4536,\n}\n",
+  "gold": []
+ },
+ {
+  "id": "k8s_manifest",
+  "kind": "code_clean",
+  "text": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: exporter\nspec:\n  replicas: 2\n  template:\n    spec:\n      containers:\n        - name: exporter\n          image: example/exporter:2.1.0\n          args: [\"--interval=30s\", \"--target=redis:6379\"]\n",
+  "gold": []
+ },
+ {
+  "id": "js_test",
+  "kind": "code_clean",
+  "text": "describe(\"formatAmount\", () => {\n  it(\"rounds half up\", () => {\n    expect(formatAmount(1.005, \"EUR\")).toBe(\"1.01 EUR\");\n  });\n  it(\"rejects NaN\", () => {\n    expect(() => formatAmount(NaN, \"EUR\")).toThrow(RangeError);\n  });\n});\n",
+  "gold": []
+ },
+ {
+  "id": "py_comment_name",
+  "kind": "code_pii",
+  "text": "# Reviewed by Kirsten Miller on 2026-01-10.\nAUTHOR = \"Daniel Okafor\"\n\ndef greeting(user):\n    return f\"Hello {user.first_name}\"\n",
+  "gold": [
+   {
+    "start": 14,
+    "end": 28,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 54,
+    "end": 67,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "git_log",
+  "kind": "code_pii",
+  "text": "commit 3f2a9c1e7b0d4a6f8e2c5b1a9d7e3f0c2b4a6d8e\nAuthor: Priya Raman <priya.raman@example.com>\nDate:   Thu Jan 15 10:02:11 2026 +0100\n\n    Fix rounding in invoice totals\n",
+  "gold": [
+   {
+    "start": 56,
+    "end": 67,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "json_user",
+  "kind": "code_pii",
+  "text": "{\n  \"first_name\": \"Marta\",\n  \"last_name\": \"Kowalski\",\n  \"street\": \"17 Linden Avenue\",\n  \"city\": \"Portland\",\n  \"plan\": \"pro\"\n}\n",
+  "gold": [
+   {
+    "start": 19,
+    "end": 24,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 43,
+    "end": 51,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 67,
+    "end": 83,
+    "cat": "ADDRESS",
+    "optional": false
+   },
+   {
+    "start": 97,
+    "end": 105,
+    "cat": "ADDRESS",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "csv_people",
+  "kind": "code_pii",
+  "text": "name,address,city,balance\nJohn Smith,221 Baker Street,London,120.50\nAisha Bello,9 Rue de la Paix,Paris,88.00\nKenji Watanabe,4-2-8 Shibakoen,Tokyo,0.00\n",
+  "gold": [
+   {
+    "start": 26,
+    "end": 36,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 37,
+    "end": 53,
+    "cat": "ADDRESS",
+    "optional": false
+   },
+   {
+    "start": 54,
+    "end": 60,
+    "cat": "ADDRESS",
+    "optional": true
+   },
+   {
+    "start": 68,
+    "end": 79,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 80,
+    "end": 96,
+    "cat": "ADDRESS",
+    "optional": false
+   },
+   {
+    "start": 97,
+    "end": 102,
+    "cat": "ADDRESS",
+    "optional": true
+   },
+   {
+    "start": 109,
+    "end": 123,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 124,
+    "end": 139,
+    "cat": "ADDRESS",
+    "optional": false
+   },
+   {
+    "start": 140,
+    "end": 145,
+    "cat": "ADDRESS",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "fixture_user",
+  "kind": "code_pii",
+  "text": "def make_user():\n    return User(name=\"Hannah Schmidt\", email=\"h.schmidt@example.org\", role=\"admin\")\n",
+  "gold": [
+   {
+    "start": 39,
+    "end": 53,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "dict_name_keys",
+  "kind": "code_pii",
+  "text": "scores = {\"Liam O'Brien\": 91, \"Chen Wei\": 88, \"Sofia Rossi\": 79}\nbest = max(scores, key=scores.get)\n",
+  "gold": [
+   {
+    "start": 11,
+    "end": 23,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 31,
+    "end": 39,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 47,
+    "end": 58,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "sql_insert",
+  "kind": "code_pii",
+  "text": "INSERT INTO customers (name, address, created_at)\nVALUES ('Rosa Martinez', '500 Oak Lane, Austin, TX 78701', NOW());\n",
+  "gold": [
+   {
+    "start": 59,
+    "end": 72,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 76,
+    "end": 106,
+    "cat": "ADDRESS",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "docstring_credit",
+  "kind": "code_pii",
+  "text": "def levenshtein(a: str, b: str) -> int:\n    \"\"\"Edit distance. Ported from the original implementation by Tomás Herrera.\"\"\"\n    ...\n",
+  "gold": [
+   {
+    "start": 105,
+    "end": 118,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "scp_user",
+  "kind": "code_pii",
+  "text": "scp build/report.pdf mgarcia@build-host:/srv/reports/\nssh mgarcia@build-host 'ls -la /srv/reports | tail -n 3'\n",
+  "gold": [
+   {
+    "start": 21,
+    "end": 28,
+    "cat": "PERSON",
+    "optional": true
+   },
+   {
+    "start": 58,
+    "end": 65,
+    "cat": "PERSON",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "email_headers",
+  "kind": "code_pii",
+  "text": "From: Olivia Brown <olivia.brown@example.net>\nTo: Ethan Clarke <e.clarke@example.com>\nSubject: Q1 invoices\n",
+  "gold": [
+   {
+    "start": 6,
+    "end": 18,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 50,
+    "end": 62,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "chat_reply",
+  "kind": "prose_pii",
+  "text": "Hi, can you draft a reply to Jennifer Lawson? She moved to 88 Harbour Road, Cork last month and the renewal letter went to the old address.",
+  "gold": [
+   {
+    "start": 29,
+    "end": 44,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 59,
+    "end": 80,
+    "cat": "ADDRESS",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "meeting_notes",
+  "kind": "prose_pii",
+  "text": "Attendees: Sam Patel, Grace Kim. Action: Grace sends the signed lease to the landlord at 14 Willow Close, Leeds LS6 2AB by Friday.",
+  "gold": [
+   {
+    "start": 11,
+    "end": 20,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 22,
+    "end": 31,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 41,
+    "end": 46,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 89,
+    "end": 119,
+    "cat": "ADDRESS",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "neighbour",
+  "kind": "prose_pii",
+  "text": "My neighbour Mr. Dubois keeps parking in front of 3 Chestnut Street, what can I write to the council?",
+  "gold": [
+   {
+    "start": 13,
+    "end": 23,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 50,
+    "end": 67,
+    "cat": "ADDRESS",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "clinic",
+  "kind": "prose_pii",
+  "text": "Ask Dr. Ana Lima whether the cardiology clinic in Tralee has openings next week.",
+  "gold": [
+   {
+    "start": 4,
+    "end": 16,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 50,
+    "end": 56,
+    "cat": "ADDRESS",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "patient",
+  "kind": "prose_pii",
+  "text": "Patient: Robert King, DOB 1984-03-12, lives at 1200 Pine St Apt 4B, Seattle, WA 98101.",
+  "gold": [
+   {
+    "start": 9,
+    "end": 20,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 47,
+    "end": 85,
+    "cat": "ADDRESS",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "invoice_late",
+  "kind": "prose_pii",
+  "text": "Emily said the invoice for Mark Thompson is two weeks late.",
+  "gold": [
+   {
+    "start": 0,
+    "end": 5,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 27,
+    "end": 40,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "lowercase_name",
+  "kind": "prose_pii",
+  "text": "tell sarah the build is green and she can merge",
+  "gold": [
+   {
+    "start": 5,
+    "end": 10,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "intl_names",
+  "kind": "prose_pii",
+  "text": "The contract was signed by Nguyễn Thị Lan and Oluwaseun Adeyemi on behalf of the buyer.",
+  "gold": [
+   {
+    "start": 27,
+    "end": 41,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 46,
+    "end": 63,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "approve",
+  "kind": "prose_pii",
+  "text": "Merge the PR once Grace approves; Tom is on leave until Monday.",
+  "gold": [
+   {
+    "start": 18,
+    "end": 23,
+    "cat": "PERSON",
+    "optional": false
+   },
+   {
+    "start": 34,
+    "end": 37,
+    "cat": "PERSON",
+    "optional": false
+   }
+  ]
+ },
+ {
+  "id": "tech_words",
+  "kind": "prose_clean",
+  "text": "Deploy to Kubernetes on Saturday after the Django upgrade, then check the Redis and Postgres dashboards.",
+  "gold": []
+ },
+ {
+  "id": "product_names",
+  "kind": "prose_clean",
+  "text": "Use Claude Code with the Anthropic API; the Jupyter notebook runs on Python 3.13 with NumPy and Pandas.",
+  "gold": []
+ },
+ {
+  "id": "regions",
+  "kind": "prose_clean",
+  "text": "We tested the CDN from the Tokyo and Frankfurt regions; latency was fine.",
+  "gold": [
+   {
+    "start": 27,
+    "end": 32,
+    "cat": "ADDRESS",
+    "optional": true
+   },
+   {
+    "start": 37,
+    "end": 46,
+    "cat": "ADDRESS",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "tools",
+  "kind": "prose_clean",
+  "text": "Run black, then mypy, then pytest; Jenkins picks it up and Grafana shows the result.",
+  "gold": []
+ },
+ {
+  "id": "eponym",
+  "kind": "prose_clean",
+  "text": "Apportion the seats with Hamilton's method and compare with the D'Hondt result.",
+  "gold": [
+   {
+    "start": 25,
+    "end": 33,
+    "cat": "PERSON",
+    "optional": true
+   },
+   {
+    "start": 64,
+    "end": 71,
+    "cat": "PERSON",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "cloud",
+  "kind": "prose_clean",
+  "text": "Set the S3 bucket policy and the VictoriaMetrics retention, then rotate the Vault token.",
+  "gold": []
+ },
+ {
+  "id": "ls_output",
+  "kind": "tool_output",
+  "text": "total 24\ndrwxr-xr-x  4 jdoe  staff   128 Jan 15 10:00 .\n-rw-r--r--  1 jdoe  staff  4096 Jan 15 10:00 invoices.csv\n-rw-r--r--  1 jdoe  staff  1871 Jan 15 09:58 make_docs.py\n",
+  "gold": [
+   {
+    "start": 23,
+    "end": 27,
+    "cat": "PERSON",
+    "optional": true
+   },
+   {
+    "start": 70,
+    "end": 74,
+    "cat": "PERSON",
+    "optional": true
+   },
+   {
+    "start": 128,
+    "end": 132,
+    "cat": "PERSON",
+    "optional": true
+   }
+  ]
+ },
+ {
+  "id": "pytest_output",
+  "kind": "tool_output",
+  "text": "FAILED tests/unit/test_walker.py::test_keys_never_scrubbed - AssertionError: assert {'KEY': 'V'} == {'key': 'V'}\n1 failed, 212 passed in 4.81s\n",
+  "gold": []
+ },
+ {
+  "id": "pip_output",
+  "kind": "tool_output",
+  "text": "Resolved 41 packages in 312ms\nInstalled 3 packages in 18ms\n + httpx==0.28.1\n + respx==0.22.0\n + pytest-asyncio==0.25.2\n",
+  "gold": []
+ },
+ {
+  "id": "git_status",
+  "kind": "tool_output",
+  "text": "On branch 28-spec\nChanges not staged for commit:\n  modified:   specs/028-replay-as-sent/spec.md\n  modified:   src/llm_pii_proxy/walker.py\nUntracked files:\n  tests/integration/test_content_rule.py\n",
+  "gold": []
+ },
+ {
+  "id": "paths",
+  "kind": "tool_output",
+  "text": "/Users/jdoe/Documents/Invoices/2026/Q1/orders.csv\nC:\\Users\\mschulz\\AppData\\Local\\Temp\\build.log\n",
+  "gold": [
+   {
+    "start": 7,
+    "end": 11,
+    "cat": "PERSON",
+    "optional": true
+   },
+   {
+    "start": 59,
+    "end": 66,
+    "cat": "PERSON",
+    "optional": true
+   }
+  ]
+ }
+]

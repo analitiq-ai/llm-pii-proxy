@@ -215,8 +215,10 @@ read the traces. The page writes trace content into the page only as text.
 - **Detection is not perfect.** Local detection misses some values.
 - **A value Privacy Filter cuts short reaches Anthropic in part.** `ssh mgarcia@build-host` can arrive as
   `ssh PII_EMAIL_0002-host` ([specs/029-privacy-filter](specs/029-privacy-filter/spec.md) Edge Cases).
-- **Without an NVIDIA GPU, new content is slow to scrub.** Privacy Filter on `cpu` took about 12 s per KB
-  with 8 threads ([specs/029-privacy-filter](specs/029-privacy-filter/plan.md) § Measurements).
+- **On `cpu`, new content is slow to scrub.** [specs/029-privacy-filter](specs/029-privacy-filter/spec.md)
+  FR-004 makes `cpu` the default of `PII_PROXY_PRIVACY_FILTER_DEVICE`, and the spec has a machine with an NVIDIA
+  GPU run Privacy Filter on `cuda`. Privacy Filter on `cpu` took about 12 s per KB with 8 threads
+  ([plan.md](specs/029-privacy-filter/plan.md) § Measurements).
 
 ## Development
 

@@ -10,14 +10,18 @@ recognizers, called directly without an NLP engine. The confidential pass goes, 
 
 ## Measurements
 
-A synthetic set of 50 samples, every value invented: 20 code samples (Python, JavaScript, Go, Rust, Bash,
-SQL, JSON, YAML, a Dockerfile, a Makefile, log lines, a traceback, a diff, #28's reproduction script among
-them), 10 code samples with names, emails or addresses, 5 tool outputs, 9 prose samples with PII and 6
-without. #28's script holds one username, `jdoe` in a path; the other 19 code samples hold no name, email, phone number or address. 39 names
-and addresses are scored; usernames and bare city names count as neither a hit nor a miss. The set holds 6
-emails and no phone numbers. spaCy ran as `build_engine()` configures it, at `min_score` 0.4. Privacy Filter
-ran at its defaults on `cpu`, 8 threads, on a 16-core machine. Spans were trimmed with `trim_span` before
-scoring; the never-scrub list was not applied.
+A synthetic set of 50 samples, every value invented, in [measurements/corpus.json](measurements/corpus.json),
+with each detector's spans in `preds_spacy.json` and `preds_pf.json` beside it: 20 code samples (Python,
+JavaScript, Go, Rust, Bash, SQL, JSON, YAML, a Dockerfile, a Makefile, log lines, a traceback, a diff, #28's
+reproduction script among them), 10 code samples with names, emails or addresses, 5 tool outputs, 9 prose
+samples with PII and 6 without. #28's script, `issue28_script`, holds one username, `jdoe` in a path. The other
+19 code samples hold no name, email, phone number or address: `pandas`, `react`, `bash_pipeline`,
+`sql_report`, `json_config`, `gh_actions`, `dockerfile`, `traceback`, `git_diff`, `csv_units`, `go_server`,
+`rust_parse`, `makefile`, `log_lines`, `pytest_test`, `regex_code`, `units_dict`, `k8s_manifest`, `js_test`.
+39 names and addresses are scored; usernames, bare city names and eponyms (`Hamilton`), marked `optional`,
+count as neither a hit nor a miss. The set holds 6 emails and no phone numbers. spaCy ran as `build_engine()`
+configures it, at `min_score` 0.4. Privacy Filter ran at its defaults on `cpu`, 8 threads, on a 16-core
+machine. Spans were trimmed with `trim_span` before scoring; the never-scrub list was not applied.
 
 | | spaCy | Privacy Filter |
 |---|---|---|
@@ -137,9 +141,9 @@ the corpus's `context` field, `test_fail_closed.py`'s error message):
 ## Governing documents
 
 The requirements and contracts change in this spec PR, so they hold before the story starts:
-- 001 `spec.md`: the scope paragraph, User Story 2, FR-012 to FR-015, SC-003's wording, SC-004, SC-005, SC-006,
-  the edge case on false positives, the assumption that a placeholder replaces the whole value, the assumptions
-  and dependencies that name them.
+- 001 `spec.md`: the scope paragraph, the values User Story 1 says are replaced, User Story 2, FR-012 to
+  FR-015, SC-003's wording, SC-004, SC-005, SC-006, the edge case on false positives, the assumption that a
+  placeholder replaces the whole value, the assumptions and dependencies that name them.
 - 001 `data-model.md`: the category sources, `CONTEXT`, a span's stage, edge trimming, the leaf cache's
   detectors, the operator lists' categories, the scrub report's key.
 - `README.md` § Features and § Limits, which `CLAUDE.md` makes requirements.

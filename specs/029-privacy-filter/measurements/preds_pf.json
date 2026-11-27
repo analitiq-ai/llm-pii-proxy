@@ -1,0 +1,393 @@
+{
+ "preds": {
+  "issue28_script": [],
+  "pandas": [],
+  "react": [],
+  "bash_pipeline": [],
+  "sql_report": [],
+  "json_config": [],
+  "gh_actions": [],
+  "dockerfile": [],
+  "traceback": [],
+  "git_diff": [],
+  "csv_units": [],
+  "go_server": [],
+  "rust_parse": [],
+  "makefile": [],
+  "log_lines": [
+   {
+    "start": 0,
+    "end": 19,
+    "cat": "PRIVATE_DATE"
+   },
+   {
+    "start": 75,
+    "end": 94,
+    "cat": "PRIVATE_DATE"
+   },
+   {
+    "start": 152,
+    "end": 171,
+    "cat": "PRIVATE_DATE"
+   }
+  ],
+  "pytest_test": [],
+  "regex_code": [],
+  "units_dict": [],
+  "k8s_manifest": [],
+  "js_test": [],
+  "py_comment_name": [
+   {
+    "start": 14,
+    "end": 28,
+    "cat": "PERSON"
+   }
+  ],
+  "git_log": [
+   {
+    "start": 56,
+    "end": 67,
+    "cat": "PERSON"
+   },
+   {
+    "start": 69,
+    "end": 92,
+    "cat": "PRIVATE_EMAIL"
+   },
+   {
+    "start": 102,
+    "end": 126,
+    "cat": "PRIVATE_DATE"
+   }
+  ],
+  "json_user": [
+   {
+    "start": 19,
+    "end": 24,
+    "cat": "PERSON"
+   },
+   {
+    "start": 43,
+    "end": 51,
+    "cat": "PERSON"
+   },
+   {
+    "start": 67,
+    "end": 83,
+    "cat": "ADDRESS"
+   },
+   {
+    "start": 97,
+    "end": 105,
+    "cat": "ADDRESS"
+   }
+  ],
+  "csv_people": [
+   {
+    "start": 26,
+    "end": 36,
+    "cat": "PERSON"
+   },
+   {
+    "start": 37,
+    "end": 40,
+    "cat": "ADDRESS"
+   },
+   {
+    "start": 41,
+    "end": 53,
+    "cat": "ADDRESS"
+   },
+   {
+    "start": 54,
+    "end": 60,
+    "cat": "ADDRESS"
+   },
+   {
+    "start": 68,
+    "end": 79,
+    "cat": "PERSON"
+   },
+   {
+    "start": 80,
+    "end": 102,
+    "cat": "ADDRESS"
+   },
+   {
+    "start": 109,
+    "end": 123,
+    "cat": "PERSON"
+   },
+   {
+    "start": 130,
+    "end": 139,
+    "cat": "PERSON"
+   }
+  ],
+  "fixture_user": [
+   {
+    "start": 39,
+    "end": 53,
+    "cat": "PERSON"
+   },
+   {
+    "start": 63,
+    "end": 84,
+    "cat": "PRIVATE_EMAIL"
+   }
+  ],
+  "dict_name_keys": [
+   {
+    "start": 11,
+    "end": 23,
+    "cat": "PERSON"
+   },
+   {
+    "start": 31,
+    "end": 39,
+    "cat": "PERSON"
+   },
+   {
+    "start": 47,
+    "end": 58,
+    "cat": "PERSON"
+   }
+  ],
+  "sql_insert": [
+   {
+    "start": 59,
+    "end": 72,
+    "cat": "PERSON"
+   },
+   {
+    "start": 76,
+    "end": 106,
+    "cat": "ADDRESS"
+   }
+  ],
+  "docstring_credit": [
+   {
+    "start": 105,
+    "end": 118,
+    "cat": "PERSON"
+   }
+  ],
+  "scp_user": [
+   {
+    "start": 21,
+    "end": 39,
+    "cat": "PRIVATE_EMAIL"
+   },
+   {
+    "start": 58,
+    "end": 71,
+    "cat": "PRIVATE_EMAIL"
+   }
+  ],
+  "email_headers": [
+   {
+    "start": 6,
+    "end": 18,
+    "cat": "PERSON"
+   },
+   {
+    "start": 20,
+    "end": 44,
+    "cat": "PRIVATE_EMAIL"
+   },
+   {
+    "start": 50,
+    "end": 62,
+    "cat": "PERSON"
+   },
+   {
+    "start": 64,
+    "end": 84,
+    "cat": "PRIVATE_EMAIL"
+   }
+  ],
+  "chat_reply": [
+   {
+    "start": 29,
+    "end": 44,
+    "cat": "PERSON"
+   },
+   {
+    "start": 59,
+    "end": 80,
+    "cat": "ADDRESS"
+   }
+  ],
+  "meeting_notes": [
+   {
+    "start": 11,
+    "end": 20,
+    "cat": "PERSON"
+   },
+   {
+    "start": 22,
+    "end": 31,
+    "cat": "PERSON"
+   },
+   {
+    "start": 41,
+    "end": 46,
+    "cat": "PERSON"
+   },
+   {
+    "start": 89,
+    "end": 119,
+    "cat": "ADDRESS"
+   }
+  ],
+  "neighbour": [
+   {
+    "start": 13,
+    "end": 23,
+    "cat": "PERSON"
+   }
+  ],
+  "clinic": [
+   {
+    "start": 4,
+    "end": 16,
+    "cat": "PERSON"
+   }
+  ],
+  "patient": [
+   {
+    "start": 9,
+    "end": 20,
+    "cat": "PERSON"
+   },
+   {
+    "start": 26,
+    "end": 36,
+    "cat": "PRIVATE_DATE"
+   },
+   {
+    "start": 47,
+    "end": 85,
+    "cat": "ADDRESS"
+   }
+  ],
+  "invoice_late": [
+   {
+    "start": 27,
+    "end": 40,
+    "cat": "PERSON"
+   }
+  ],
+  "lowercase_name": [
+   {
+    "start": 5,
+    "end": 10,
+    "cat": "PERSON"
+   }
+  ],
+  "intl_names": [],
+  "approve": [
+   {
+    "start": 18,
+    "end": 23,
+    "cat": "PERSON"
+   },
+   {
+    "start": 34,
+    "end": 37,
+    "cat": "PERSON"
+   }
+  ],
+  "tech_words": [],
+  "product_names": [],
+  "regions": [],
+  "tools": [],
+  "eponym": [
+   {
+    "start": 25,
+    "end": 33,
+    "cat": "PERSON"
+   }
+  ],
+  "cloud": [],
+  "ls_output": [
+   {
+    "start": 23,
+    "end": 27,
+    "cat": "PERSON"
+   }
+  ],
+  "pytest_output": [],
+  "pip_output": [],
+  "git_status": [],
+  "paths": [
+   {
+    "start": 6,
+    "end": 11,
+    "cat": "PERSON"
+   },
+   {
+    "start": 59,
+    "end": 66,
+    "cat": "PERSON"
+   }
+  ]
+ },
+ "per_case_s": {
+  "issue28_script": 6.1792169630061835,
+  "pandas": 2.9360997069161385,
+  "react": 2.931768211070448,
+  "bash_pipeline": 3.0379997650161386,
+  "sql_report": 2.4853503389749676,
+  "json_config": 2.621859338134527,
+  "gh_actions": 2.6025499808602035,
+  "dockerfile": 3.181885865982622,
+  "traceback": 2.8661711600143462,
+  "git_diff": 2.013565960107371,
+  "csv_units": 1.785289250081405,
+  "go_server": 2.8720866891089827,
+  "rust_parse": 2.9454527439083904,
+  "makefile": 1.3384969441685826,
+  "log_lines": 3.1975399360526353,
+  "pytest_test": 1.91999182687141,
+  "regex_code": 2.7943528438918293,
+  "units_dict": 2.1395719801075757,
+  "k8s_manifest": 2.5144352400675416,
+  "js_test": 2.571633954066783,
+  "py_comment_name": 1.293909337138757,
+  "git_log": 2.908765697851777,
+  "json_user": 1.6003264929167926,
+  "csv_people": 2.090367771917954,
+  "fixture_user": 0.8859143520239741,
+  "dict_name_keys": 1.316596532939002,
+  "sql_insert": 1.136963945813477,
+  "docstring_credit": 1.192452386021614,
+  "scp_user": 1.2719171131029725,
+  "email_headers": 1.021061270032078,
+  "chat_reply": 1.1455919430591166,
+  "meeting_notes": 1.2707386589609087,
+  "neighbour": 0.885990880895406,
+  "clinic": 0.647575668990612,
+  "patient": 1.1302401290740818,
+  "invoice_late": 0.44567694002762437,
+  "lowercase_name": 0.40972341503947973,
+  "intl_names": 0.8220799381379038,
+  "approve": 0.5088195709977299,
+  "tech_words": 0.7122173141688108,
+  "product_names": 0.9836178438272327,
+  "regions": 0.5430259518325329,
+  "tools": 0.7423893101513386,
+  "eponym": 0.6484903120435774,
+  "cloud": 0.6513148869853467,
+  "ls_output": 3.1036608600988984,
+  "pytest_output": 1.595814127009362,
+  "pip_output": 1.7590236589312553,
+  "git_status": 1.9143544130492955,
+  "paths": 1.1519250080455095
+ },
+ "timing_s": {
+  "2000": 22.881776017136872,
+  "20000": 232.63453405816108
+ },
+ "threads": 8
+}

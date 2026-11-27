@@ -20,8 +20,8 @@ confidential second pass on a Privatemode-hosted model was User Story 2 until th
 ### User Story 1 - Work in Claude Code without PII leaving the machine (Priority: P1)
 
 A developer starts Claude Code through the proxy and works as usual on code, data files and logs that contain
-personal data: names, emails, phone numbers, addresses, account numbers. Before any request leaves the
-machine, every personal value the local detection recognises is replaced with a placeholder. The same value
+personal data: names, emails, phone numbers, addresses, payment cards, IBANs. Before any request leaves the
+machine, every value local detection finds in an FR-003 category is replaced with a placeholder. The same value
 always gets the same placeholder within the conversation (for example `PII_EMAIL_0001`). When Claude answers or acts
 (writing a file, editing code, running a command), the proxy puts the original values back. Files on disk and
 text on screen contain the real data. The model provider only ever sees placeholders.

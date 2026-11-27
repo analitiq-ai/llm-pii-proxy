@@ -19,10 +19,10 @@ The file list is plan.md § Files the story changes.
 - [ ] T002 [US1] Add `tests/fixtures/issue-28-script.txt` and `tests/integration/test_code_as_written.py`:
   through `build_app`, with `jdoe` on the always-scrub list, the script reaches upstream byte-identical except
   that `jdoe` is replaced (SC-001, acceptance scenario 1). Red: spaCy labels `\n").writerows(docs` `PERSON`.
-- [ ] T003 [US1] Add `tests/fixtures/code-set/` (plan.md § Measurements: the 19 code samples with no name, email, phone number or address) and
-  `tests/benchmark/test_code_set.py`: through `build_app`, no `PERSON`, `ADDRESS`, `EMAIL` or `PHONE`
-  placeholder reaches upstream (SC-003). Red: spaCy labels `top.head`, `MAX_BATCH`, `app.main` and `MJ`
-  `PERSON`.
+- [ ] T003 [US1] Add `tests/fixtures/code-set/`, the 19 code samples plan.md § Measurements names, copied from
+  `measurements/corpus.json`, and `tests/benchmark/test_code_set.py`: through `build_app`, no `PERSON`,
+  `ADDRESS`, `EMAIL` or `PHONE` placeholder reaches upstream (SC-003). Red: spaCy labels `top.head`,
+  `MAX_BATCH`, `app.main` and `MJ` `PERSON`.
 
 ### Confidential pass removed
 
@@ -95,5 +95,6 @@ The file list is plan.md § Files the story changes.
 
 - [ ] T014 [US1] Update the documents that say how to run and develop the code (plan.md § Files the story
   changes). `README.md` setup steps run top to bottom on a clean checkout: sync, build the secret detector,
-  fetch Privacy Filter, start the proxy.
+  fetch Privacy Filter, set `PII_PROXY_PRIVACY_FILTER_DEVICE=cuda` on a machine with an NVIDIA GPU, start the
+  proxy.
   `CLAUDE.md` says what `uv run pytest`, `-m benchmark` and `-m gpu` run.

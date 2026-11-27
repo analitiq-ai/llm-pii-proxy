@@ -70,7 +70,7 @@ appear only as placeholders.
 - **FR-003**: A base64 image is described by the vision model on Privatemode, which also says whether it is a
   document; a document image is also converted to Markdown by the OCR model.
 - **FR-004**: The converted text replaces the block in place, wherever under `messages` it is, and is then
-  scrubbed as any other text leaf, including by the confidential pass when that is enabled.
+  scrubbed as any other text leaf.
 - **FR-005**: Converted text is cached in memory by content hash, up to a configured number of entries. A
   block repeated while its entry is cached is neither converted again nor sent with different text; once
   evicted, it converts again and its text may differ. The cache holds real values: it is never logged or

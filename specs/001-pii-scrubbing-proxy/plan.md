@@ -102,7 +102,6 @@ specs/001-pii-scrubbing-proxy/
 ├── contracts/
 │   ├── http-interface.md
 │   ├── placeholder-format.md
-│   ├── confidential-detection.md
 │   └── secret-detector.md
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks, not created here

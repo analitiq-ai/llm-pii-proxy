@@ -31,11 +31,10 @@ Issuing a 10 000th placeholder in one category fails the leaf closed (FR-007).
 1. **Escape literals first.** Any text in a leaf that matches the scanning regex (case-insensitively, as
    restoration does) is treated as a detected value of category `LITERAL` and gets its own placeholder. Real
    data that happens to look like a placeholder is therefore never confused with an issued one (FR-011).
-2. **Known values next.** Every value already in the vault, including the operator's always-scrub values
-   seeded at session creation (FR-018), is replaced by its token, longest value first. This happens before
-   detection, so a value detected once is always replaced again, even when a non-deterministic detector (NER,
-   the confidential pass) would miss it in a new context. It also keeps restored history byte-identical to what
-   the model generated, which keeps prompt caching effective.
+2. **Known values next.** Occurrences of values already in the vault, including the operator's always-scrub
+   values seeded at session creation (FR-018), are replaced by their tokens under the boundary rule below, so a
+   value detected once is still replaced where detection misses it. The text is scanned left to right, longest
+   value first at each position.
 
    **Boundary rule**: an occurrence is replaced only if it isn't extended by a word character (`\w`) at an
    edge where the value itself is a word character. So `Al` is replaced in `Al,` and `(Al)` but not in `Alice`
